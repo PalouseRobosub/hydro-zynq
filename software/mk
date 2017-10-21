@@ -1,0 +1,5 @@
+#!/bin/bash
+
+arm-none-eabi-gcc -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -Wl,-build-id=none -specs=Xilinx.spec -Wl,-T -Wl,lscript.ld $1 src/global_timer.c src/system.c src/time_util.c src/uart.c -I src/ -o ../build/app.elf -Wl,--start-group,-lxil,-lgcc,-lc,--end-group -L./ -Wl,-Map=../build/app.map
+cd ../build
+bootgen -image application.bif -o BOOT.bin -w
