@@ -1,6 +1,8 @@
 #include "network_stack.h"
 
 #include "netif/xadapter.h"
+#include "xparameters.h"
+#include "abort.h"
 
 /**
  * The ethernet networking interface used for communication.
@@ -27,7 +29,7 @@ result_t init_network_stack(struct ip_addr ip_address, struct ip_addr netmask,
                          &netmask,
                          &gateway,
                          mac_address.addr,
-                         PLATFORM_EMAC_BASE_ADDRESS), fail);
+                         XPAR_XEMACPS_0_BASEADDR), fail);
 
     netif_set_default(&ethernet_interface);
 
@@ -42,4 +44,18 @@ result_t init_network_stack(struct ip_addr ip_address, struct ip_addr netmask,
     //TODO: Determine if lwIP handles TCP timers internally.
 
     return success;
+}
+
+/**
+ * Forward traffic received rom the Ethernet driver into the network stack.
+ *
+ * @return None.
+ */
+void dispatch_network_stack()
+{
+    uint32_t packets_rx = xemacif_input(&ethernet_interface);
+    if (packets_rx)
+    {
+        uprintf("Received %d packets\n", packets_rx);
+    }
 }

@@ -2,22 +2,19 @@
 
 #include "abort.h"
 #include "global_timer.h"
-//#include "ps7_init.h"
+#include "xscugic.h"
 #include "types.h"
 #include "regs/gpio_regs.h"
 
 /**
  * Initializes the processing system.
  *
+ * @note The processing system is initialized by the FSBL.
+ *
  * @return Success or fail.
  */
 result_t init_system()
 {
-    /*
-     * Initialize the processing system.
-     */
-    //AbortIfNot(ps7_init() == PS7_INIT_SUCCESS, fail);
-
     /*
      * Initialize the user indication LED.
      */
@@ -30,7 +27,40 @@ result_t init_system()
      */
     AbortIfNot(init_global_timer(), fail);
 
+    /*
+     * Set up Xilinx's interrupt controller driver.
+     */
+    set_interrupts(false);
+    XScuGic_DeviceInitialize(XPAR_SCUGIC_SINGLE_DEVICE_ID);
+
+    /*
+     * Register the GIC handler with the zynq trampoline.
+     */
+    Xil_ExceptionRegisterHandler(XIL_EXCEPTION_ID_IRQ_INT,
+            (Xil_ExceptionHandler)XScuGic_DeviceInterruptHandler,
+            (void *)XPAR_SCUGIC_SINGLE_DEVICE_ID);
+
     return success;
+}
+
+void set_interrupts(bool enabled)
+{
+    if (enabled)
+    {
+        asm volatile("push {r1}\n"
+                     "mrs r1, cpsr\n"
+                     "bic r1, r1, #0x80\n"
+                     "msr cpsr, r1\n"
+                     "pop {r1}\n");
+    }
+    else
+    {
+        asm volatile("push {r1}\n"
+                     "mrs r1, cpsr\n"
+                     "orr r1, r1, #0x80\n"
+                     "msr cpsr, r1\n"
+                     "pop {r1}\n");
+    }
 }
 
 void set_board_led(bool enabled)

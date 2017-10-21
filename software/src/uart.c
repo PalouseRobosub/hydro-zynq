@@ -26,7 +26,7 @@ void print_string(char *str)
     }
 }
 
-void print(const char fmt[], ...)
+void uprintf(const char fmt[], ...)
 {
     char str[256];
     va_list args;
