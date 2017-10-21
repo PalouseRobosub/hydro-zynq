@@ -1,25 +1,37 @@
+/**
+ * HydroZynq Data acquisition firmware.
+ *
+ * @author Ryan Summers
+ * @date 10/17/2017
+ */
+
+#include "types.h"
+
+/**
+ * Defines the maximum number of samples that can be stored in memory.
+ */
 #define max_samples 85000000
 
-/*
- * Defines an analog sample type.
- */
-typedef int16_t analog_sample_t;
-
-/*
- * Defines a clock tick type.
- */
-typedef uint64_t tick_t;
-
-/*
+/**
  * Defines a single sample of an analog channel.
  */
 typedef struct sample
 {
+    /*
+     * The system time the sample was taken at.
+     */
     tick_t timestamp;
+
+    /*
+     * The analog sample measurement for each ADC channel.
+     */
     analog_sample_t sample[4];
 
 } Sample;
 
+/**
+ * The array of current samples.
+ */
 Sample samples[max_samples];
 
 void acquire_sync()
@@ -55,9 +67,14 @@ void acquire_sync()
 int main()
 {
     /*
-     * Set up the network stack.
+     * Initialize the system.
      */
-    lwip_init();
+    AbortIfNot(init_system(), fail);
+
+    /*
+     * Initialize the network stack.
+     */
+    AbortIfNot(init_network_stack(), fail);
 
     /*
      * Configure the ADC.
