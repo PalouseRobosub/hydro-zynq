@@ -1,6 +1,7 @@
 #!/bin/bash -e
 
 cd build/
+rm *.o
 arm-none-eabi-gcc -c -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -Wl,-build-id=none -specs=build_files/Xilinx.spec ../$1 ../src/*.c -I ../src/ -I ../include/external
 cd ../
 arm-none-eabi-gcc -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -Wl,-build-id=none -specs=build/build_files/Xilinx.spec -Wl,-T -Wl,build/build_files/lscript.ld build/*.o -o build/app.elf -Wl,--start-group,-lxil,-llwip4,-lgcc,-lc,--end-group -Llib/ -Wl,-Map=build/app.map
