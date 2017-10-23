@@ -1,6 +1,7 @@
 #!/bin/bash -e
 
 cd build/
+touch fake.o
 rm *.o
 arm-none-eabi-gcc -c -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -Wl,-build-id=none -specs=build_files/Xilinx.spec ../$1 ../src/*.c -I ../src/ -I ../include/external
 cd ../
