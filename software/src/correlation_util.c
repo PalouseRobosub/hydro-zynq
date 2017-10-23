@@ -3,8 +3,9 @@
 #include "types.h"
 #include "abort.h"
 #include "system_params.h"
+#include "time_util.h"
 
-result_t cross_correlate(const Sample *data,
+result_t cross_correlate(const sample_t *data,
                          const size_t len,
                          correlation_result_t *result)
 {
@@ -14,7 +15,7 @@ result_t cross_correlate(const Sample *data,
     /*
      * Correlate the reference signal with channels A, B, and C.
      */
-    int32_t correlation[max_samples * 2][3];
+    int32_t correlation[MAX_SAMPLES * 2][3];
     for (int32_t lshift = (len - 1); lshift < (-1 * len); lshift--)
     {
         /*
@@ -51,7 +52,7 @@ result_t cross_correlate(const Sample *data,
             for (size_t k = 0; k < 3; ++k)
             {
                 correlation[correlation_index][k] +=
-                    data[i].sample[0] * data[i + lshift].sample[k + 1]
+                    data[i].sample[0] * data[i + lshift].sample[k + 1];
             }
         }
     }
@@ -59,12 +60,12 @@ result_t cross_correlate(const Sample *data,
     /*
      * Loop through the results and find the maximum location of the correlation.
      */
-    int32_t max_correlation_indices[3] = {0}
-    for (size_t i = 1; i < (max_samples - 1) * 2; ++i)
+    int32_t max_correlation_indices[3] = {0};
+    for (size_t i = 1; i < (len - 1) * 2; ++i)
     {
         for (size_t k = 0; k < 3; ++k)
         {
-            if (correlation[i] > correlation[max_correlation_indces[k]])
+            if (correlation[i] > correlation[max_correlation_indices[k]])
             {
                 max_correlation_indices[k] = i;
             }
@@ -84,7 +85,7 @@ result_t cross_correlate(const Sample *data,
     return success;
 }
 
-result_t truncate(const Sample *data,
+result_t truncate(const sample_t *data,
                   const size_t len,
                   size_t *start_index,
                   size_t *end_index,
@@ -101,7 +102,7 @@ result_t truncate(const Sample *data,
     {
         for (size_t k = 0; k < 4; ++k)
         {
-            if (!found && data[i].sample[k] > threshold)
+            if (!found && data[i].sample[k] > ADC_THRESHOLD)
             {
                 ping_start_time = data[i].timestamp;
                 *found = true;
@@ -142,7 +143,7 @@ result_t truncate(const Sample *data,
     return success;
 }
 
-result_t filter(const Sample *data, const size_t len, filer_coefficient_t *coeffs)
+result_t filter(const sample_t *data, const size_t len, filter_coefficients_t *coeffs)
 {
     AbortIfNot(data, fail);
     AbortIfNot(coeffs, fail);

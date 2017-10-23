@@ -8,10 +8,16 @@
 #include "types.h"
 #include "abort.h"
 #include "system_params.h"
+#include "system.h"
 #include "fifo_stream.h"
+#include "time_util.h"
 #include "lwip/udp.h"
+#include "lwip/ip.h"
 #include "network_stack.h"
 #include "udp.h"
+#include "sample_util.h"
+#include "correlation_util.h"
+#include "transmission_util.h"
 
 /**
  * The stream FIFO used for reading samples.
@@ -22,6 +28,14 @@ fifo_stream_t sample_data_stream;
  * The array of current samples.
  */
 sample_t samples[MAX_SAMPLES];
+
+bool debug_stream = false;
+
+void receive_command(void *arg, struct udp_pcb *upcb, struct pbuf *p, struct ip_addr *addr, uint16_t port)
+{
+    debug_stream = true;
+    pbuf_free(p);
+}
 
 /**
  * Main entry point into the application.
@@ -63,13 +77,13 @@ int main()
     /*
      * Bind the command port, data stream port, and the result output port.
      */
-    upd_socket_t command_socket, data_stream_socket, result_socket;
+    udp_socket_t command_socket, data_stream_socket, result_socket;
 
     struct ip_addr dest_ip;
-    IP4_ADDR(&dest_ip, 192 168, 0, 2);
+    IP4_ADDR(&dest_ip, 192, 168, 0, 2);
 
     AbortIfNot(init_udp(&command_socket), fail);
-    AbortIfNot(bind_udp(&command_socket, COMMAND_SOCKET_PORT), fail);
+    AbortIfNot(bind_udp(&command_socket, IP_ADDR_ANY, COMMAND_SOCKET_PORT, receive_command), fail);
 
     AbortIfNot(init_udp(&data_stream_socket), fail);
     AbortIfNot(connect_udp(&data_stream_socket, &dest_ip, DATA_STREAM_PORT), fail);
@@ -81,6 +95,7 @@ int main()
             ticks_to_ms(get_system_time()));
 
     bool sync = false;
+    tick_t previous_ping_tick = 0;
     while (1)
     {
         /*
@@ -93,10 +108,13 @@ int main()
          */
         if (!sync && !debug_stream)
         {
-            tick_t previous_ping_tick = 0;
             while (!previous_ping_tick)
             {
-                previous_ping_tick = acquire_sync();
+                AbortIfNot(acquire_sync(&sample_data_stream,
+                                        samples,
+                                        MAX_SAMPLES,
+                                        ms_to_ticks(2000),
+                                        &previous_ping_tick), fail);
             }
         }
 
@@ -115,21 +133,26 @@ int main()
          */
         uint32_t sample_duration_ms = (debug_stream)? 2100 : 200;
 
-        uint32_t num_samples;
-        AbortIfNot(record(samples, max_samples, &num_samples,
-                    ms_to_ticks(sample_duration_ms)));
+        size_t num_samples;
+        AbortIfNot(record(&sample_data_stream, samples, MAX_SAMPLES, &num_samples,
+                    ms_to_ticks(sample_duration_ms)), fail);
 
         /*
          * Filter the received signal.
          */
         filter_coefficients_t coefficients;
-        AbortIfNot(filter(samples, num_samples, coefficients), fail);
+        AbortIfNot(filter(samples, num_samples, &coefficients), fail);
 
         /*
          * Truncate the data around the ping.
          */
         size_t start_index, end_index;
-        AbortIfNot(truncate(samples, max_samples, &start_index, &end_index), fail);
+        bool located;
+        AbortIfNot(truncate(samples, num_samples, &start_index, &end_index, &located), fail);
+        if (!located)
+        {
+            uprintf("Failed to find the ping.\n");
+        }
 
         /*
          * Locate the ping samples.

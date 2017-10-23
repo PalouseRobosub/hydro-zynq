@@ -3,6 +3,7 @@
 #include "netif/xadapter.h"
 #include "xparameters.h"
 #include "abort.h"
+#include "lwip/init.h"
 
 /**
  * The ethernet networking interface used for communication.

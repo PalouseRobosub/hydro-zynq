@@ -1,10 +1,13 @@
 #include "transmission_util.h"
 
+#include "network_stack.h"
+
 #include "types.h"
 #include "abort.h"
 #include "udp.h"
 
 #include <string.h>
+#include "inttypes.h"
 
 /**
  * Transmits a cross correlation result.
@@ -14,10 +17,9 @@
  *
  * @return Success or fail.
  */
-result_t send_result(upd_socket_t *socket, correlation_result_t *result)
+result_t send_result(udp_socket_t *socket, correlation_result_t *result)
 {
     AbortIfNot(socket, fail);
-    AbortIfNot(is_connected_udp(socket), fail);
     AbortIfNot(result, fail);
 
     char str[200];
@@ -25,9 +27,10 @@ result_t send_result(upd_socket_t *socket, correlation_result_t *result)
     /*
      * Format the result into an standard message.
      */
-    sprintf(str, "Result - A: %d B: %d C: %d", result->channel_delay_ns[0],
-                                               result->channel_delay_ns[1],
-                                               result->channel_delay_ns[2]);
+    sprintf(str, "Result - A: %"PRId32" B: %"PRId32" C: %"PRId32,
+            result->channel_delay_ns[0],
+            result->channel_delay_ns[1],
+            result->channel_delay_ns[2]);
 
     /*
      * Send the data over the socket.
@@ -48,7 +51,7 @@ result_t send_result(upd_socket_t *socket, correlation_result_t *result)
  */
 result_t send_data(udp_socket_t *socket, sample_t *data, const size_t count)
 {
-    #define samples_per_packet = 3000;
+    #define samples_per_packet 3000
     char buf[8 * samples_per_packet + 5];
 
     int i;
@@ -61,7 +64,7 @@ result_t send_data(udp_socket_t *socket, sample_t *data, const size_t count)
         memcpy(buf, &packet_number, 4);
         for (int j = 0; j < samples_per_packet; ++j)
         {
-            memcpy(&buf[4 + j * 8], samples[i + j].sample, 8);
+            memcpy(&buf[4 + j * 8], data[i + j].sample, 8);
         }
 
         /*
@@ -87,7 +90,7 @@ result_t send_data(udp_socket_t *socket, sample_t *data, const size_t count)
         memcpy(buf, &packet_number, 4);
         for (int j = 0; j < remainder; ++j)
         {
-            memcpy(&buf[4 + j * 8], samples[i + j].sample, 8);
+            memcpy(&buf[4 + j * 8], data[i + j].sample, 8);
         }
 
         buf[8 * remainder + 4] = 0;

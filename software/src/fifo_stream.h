@@ -14,4 +14,6 @@ result_t has_packet(fifo_stream_t *fifo, bool *packet_available);
 
 result_t get_word(fifo_stream_t *fifo, uint32_t *word);
 
+result_t get_packet(fifo_stream_t *fifo, uint32_t *data, const size_t max_len, size_t *len);
+
 #endif

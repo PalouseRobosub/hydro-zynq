@@ -47,26 +47,26 @@ void set_interrupts(bool enabled)
 {
     if (enabled)
     {
-        asm volatile("push {r1}\n"
-                     "mrs r1, cpsr\n"
-                     "bic r1, r1, #0x80\n"
-                     "msr cpsr, r1\n"
-                     "pop {r1}\n");
+        __asm volatile("push {r1}\n"
+                       "mrs r1, cpsr\n"
+                       "bic r1, r1, #0x80\n"
+                       "msr cpsr, r1\n"
+                       "pop {r1}\n");
     }
     else
     {
-        asm volatile("push {r1}\n"
-                     "mrs r1, cpsr\n"
-                     "orr r1, r1, #0x80\n"
-                     "msr cpsr, r1\n"
-                     "pop {r1}\n");
+        __asm volatile("push {r1}\n"
+                       "mrs r1, cpsr\n"
+                       "orr r1, r1, #0x80\n"
+                       "msr cpsr, r1\n"
+                       "pop {r1}\n");
     }
 }
 
 void set_board_led(bool enabled)
 {
     uint32_t data = gpio_regs->DATA[1];
-    gpio_regs->DATA[1] = ((enabled)? data | (1 << 47 - 32) : data & ~(1 << 47 - 32));
+    gpio_regs->DATA[1] = ((enabled)? data | (1 << (47 - 32)) : data & ~(1 << (47 - 32)));
 }
 
 /**

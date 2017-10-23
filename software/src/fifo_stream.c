@@ -38,6 +38,28 @@ result_t has_packet(fifo_stream_t *fifo, bool *packet_available)
     return success;
 }
 
+result_t get_packet(fifo_stream_t *fifo, uint32_t *data, const size_t max_len, size_t *len)
+{
+    AbortIfNot(fifo, fail);
+    AbortIfNot(data, fail);
+    AbortIfNot(len, fail);
+
+    bool packet_available;
+    AbortIfNot(has_packet(fifo, &packet_available), fail);
+    AbortIfNot(packet_available, fail);
+
+    size_t packet_len = fifo->reg_base->RLR / fifo->reg_base->RDFO;
+    AbortIfNot((max_len * sizeof(*data)) >= packet_len, fail);
+
+    for (size_t i = 0; i < packet_len; ++i)
+    {
+        AbortIfNot(get_word(fifo, &data[i]), fail);
+    }
+
+    *len = packet_len;
+    return success;
+}
+
 result_t get_word(fifo_stream_t *fifo, uint32_t *word)
 {
     AbortIfNot(fifo, fail);
