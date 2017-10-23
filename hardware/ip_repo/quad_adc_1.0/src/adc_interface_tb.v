@@ -28,27 +28,27 @@ initial begin
 end
 
 
-reg [13 : 0] OUT_DATA;
-initial begin
-    OUT_DATA <= 14'h2AAA;
+task shift_out_data;
+    input [13 : 0] data;
+begin
+    for (integer i=0; i < 13; i=i+2) begin
+        CH_X_A <= data[13-i];
+        CH_X_B <= data[12-i];
+        #5;
+    end
+    CH_X_A <= 1'b0;
+    CH_X_B <= 1'b0;
+    #5;
 end
+endtask
 
 initial begin
     CH_X_A <= 0;
     CH_X_B <= 0;
     #(10*6 + 4)
-    for (integer i=0; i < 13; i=i+2) begin
-        CH_X_A <= OUT_DATA[13-i];
-        CH_X_B <= OUT_DATA[12-i];
-        #5;
-    end
 
-    CH_X_A <= 1'b0;
-    CH_X_B <= 1'b0;
-
-    #5
-    CH_X_A <= 1;
-    CH_X_B <= 1;
+    shift_out_data(14'h2AAA);
+    shift_out_data(14'h2BBB);
 end
 
 endmodule
