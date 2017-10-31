@@ -4,7 +4,7 @@
 #include "regs/defines.h"
 #include "types.h"
 
-struct XadcRegs
+struct XSysMonRegs
 {
     uint32_t SRR;
     uint32_t SR;

@@ -2,6 +2,8 @@
 #include "abort.h"
 #include "types.h"
 #include "spi.h"
+#include "system.h"
+#include "time_util.h"
 
 result_t init_adc(spi_driver_t *spi)
 {
@@ -21,12 +23,37 @@ result_t init_adc(spi_driver_t *spi)
     AbortIfNot(reg == 0, fail);
 
     /*
-     * Write to the test pattern LSB register as a scratchpad to verify we can
-     * talk to the ADC.
+     * Issue an ADC reset to place all registers into default state.
      */
-    AbortIfNot(write_adc_register(spi, 4, 0xab), fail);
-    AbortIfNot(read_adc_register(spi, 4, &reg), fail);
-    AbortIfNot(reg == 0xab, fail);
+    AbortIfNot(write_verify_adc_register(spi, 0, 0x80, 0x00, ms_to_ticks(10)),
+            fail);
+
+    /*
+     * Configure the ADC to utilize 1.75mA drive, 16-bit 2-lane serialization,
+     * and internal termination.
+     */
+    AbortIfNot(write_verify_adc_register(spi, 2, 0xF0, 0xF0, ms_to_ticks(10)),
+            fail);
+
+    return success;
+}
+
+result_t write_verify_adc_register(spi_driver_t *spi,
+                                   const uint8_t reg,
+                                   uint8_t data,
+                                   uint8_t expected_response,
+                                   tick_t duration)
+{
+    uint8_t response;
+    const tick_t end = get_system_time() + duration;
+    do
+    {
+        AbortIfNot(write_adc_register(spi, reg, data), fail);
+        AbortIfNot(read_adc_register(spi, reg, &response), fail);
+    }
+    while (response != expected_response && get_system_time() < end);
+
+    AbortIfNot(response == data, fail);
 
     return success;
 }
