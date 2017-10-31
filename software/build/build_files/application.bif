@@ -2,6 +2,6 @@
 the_ROM_image:
 {
 	[bootloader]./bin/fsbl.elf
-    ./bit/millisecond_counter.bit
+    ./bit/adc_spi.bit
 	./build/app.elf
 }

@@ -4,8 +4,6 @@
 #include "uart.h"
 #include "inttypes.h"
 
-#include "regs/gpio_regs.h"
-
 void delay(uint32_t milliseconds)
 {
     tick_t start = get_system_time();
@@ -15,13 +13,13 @@ void delay(uint32_t milliseconds)
 
 int main()
 {
-    print("Init system\n");
+    uprintf("Init system\n");
     AbortIfNot(init_system(), fail);
 
     while (1)
     {
         tick_t now = get_system_time();
-        print("Displaying LED at %f s, %d ms (%"PRId64")\n", ticks_to_seconds(now), ticks_to_ms(now), now);
+        uprintf("Displaying LED at %f s, %d ms (%"PRId64")\n", ticks_to_seconds(now), ticks_to_ms(now), now);
 
         /*
          * Write the on-board LED high.
