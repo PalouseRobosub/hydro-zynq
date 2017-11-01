@@ -28,10 +28,7 @@ result_t go()
     /*
      * Initialize the ADC.
      */
-    if (init_adc(&spi) == fail)
-    {
-        uprintf("Failed to initialize the ADC\n");
-    }
+    AbortIfNot(init_adc(&spi), fail);
 
     /*
      * Set up the XADC for reading FPGA temperature.

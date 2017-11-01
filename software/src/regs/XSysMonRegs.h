@@ -6,13 +6,13 @@
 
 struct XSysMonRegs
 {
-    uint32_t SRR;
-    uint32_t SR;
-    uint32_t AOSR;
-    uint32_t CONVSTR;
-    uint32_t SYSMONRR;
+    volatile uint32_t SRR;
+    volatile uint32_t SR;
+    volatile uint32_t AOSR;
+    volatile uint32_t CONVSTR;
+    volatile uint32_t SYSMONRR;
     RESERVE(uint8_t, 0x200 - 4 * 5);
-    uint32_t TEMP;
+    volatile uint32_t TEMP;
 };
 
 #endif

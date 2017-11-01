@@ -54,7 +54,7 @@ result_t transact_spi(spi_driver_t *spi, const uint16_t data, uint16_t *response
     /*
      * Enable the slave-select to the SPI device.
      */
-    spi->regs->SPISSR = 0;
+    spi->regs->SPISSR &= ~1;
 
     AbortIfNot(write_spi(spi, data), fail);
     AbortIfNot(read_spi(spi, response), fail);
@@ -62,7 +62,7 @@ result_t transact_spi(spi_driver_t *spi, const uint16_t data, uint16_t *response
     /*
      * De-assert the slave-select register.
      */
-    spi->regs->SPISSR = 0xFFFFFFFF;
+    spi->regs->SPISSR |= ~0;
 
     return success;
 }

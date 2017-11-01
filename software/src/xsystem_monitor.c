@@ -2,6 +2,7 @@
 #include "types.h"
 #include "abort.h"
 #include "uart.h"
+#include "time_util.h"
 
 result_t init_xsystem_monitor(xsystem_monitor_t *xsystem_monitor, uint32_t base_address)
 {
@@ -16,9 +17,9 @@ result_t init_xsystem_monitor(xsystem_monitor_t *xsystem_monitor, uint32_t base_
     xsystem_monitor->regs->SRR = 0xA;
 
     /*
-     * Wait for a sample to complete.
+     * Wait some cycles for the reset to complete.
      */
-    while((xsystem_monitor->regs->SR & (1 << 5)) == 0);
+    busywait(micros_to_ticks(15));
 
     return success;
 }
@@ -31,9 +32,9 @@ result_t read_fpga_temperature(xsystem_monitor_t *xsystem_monitor, float *temp_c
     AbortIfNot(xsystem_monitor->regs, fail);
 
     /*
-     * Check to ensure a new temperature reading is ready.
+     * Wait for a new measurement.
      */
-    AbortIfNot(xsystem_monitor->regs->SR & (1 << 5), fail);
+    while((xsystem_monitor->regs->SR & (1 << 5)) == 0);
 
     /*
      * Read the temperature measurement.
