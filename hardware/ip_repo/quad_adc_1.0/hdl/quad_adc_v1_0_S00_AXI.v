@@ -4,6 +4,7 @@
 	module quad_adc_v1_0_S00_AXI #
 	(
 		// Users to add parameters here
+        parameter integer DEFAULT_ENCODE_CLK_DIV = 50,
 
 		// User parameters ends
 		// Do not modify the parameters beyond this line
@@ -15,6 +16,7 @@
 	)
 	(
 		// Users to add ports here
+        output wire [C_S_AXI_DATA_WIDTH-1 : 0] ENCODE_CLK_DIV,
 
 		// User ports ends
 		// Do not modify the ports beyond this line
@@ -220,7 +222,7 @@
 	begin
 	  if ( S_AXI_ARESETN == 1'b0 )
 	    begin
-	      slv_reg0 <= 0;
+          slv_reg0 <= DEFAULT_ENCODE_CLK_DIV;
 	      slv_reg1 <= 0;
 	      slv_reg2 <= 0;
 	      slv_reg3 <= 0;
@@ -398,6 +400,7 @@
 	end    
 
 	// Add user logic here
+    assign ENCODE_CLK_DIV = slv_reg_0;
 
 	// User logic ends
 
