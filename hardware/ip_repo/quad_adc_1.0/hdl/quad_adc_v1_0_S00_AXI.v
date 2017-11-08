@@ -4,7 +4,7 @@
     module quad_adc_v1_0_S00_AXI #
     (
         // Users to add parameters here
-        parameter integer DEFAULT_ENCODE_CLK_DIV = 50,
+        parameter integer DEFAULT_ENCODE_CLK_DIV = 10,
 
         // User parameters ends
         // Do not modify the parameters beyond this line
