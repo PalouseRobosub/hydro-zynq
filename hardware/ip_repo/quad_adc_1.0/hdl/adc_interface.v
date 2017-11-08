@@ -1,11 +1,11 @@
 
 `timescale 1 ns / 1 ps
 
-	module quad_adc_interface #
-	(
-	)
-	(
-		// Users to add ports here
+    module quad_adc_interface #
+    (
+    )
+    (
+        // Users to add ports here
         input wire DATA_CLK,
         input wire FRAME_CLK,
         input wire CH_X_A,
@@ -52,4 +52,4 @@
 
     assign CH_X_DATA = REG_CH_X_DATA;
 
-	endmodule
+    endmodule
