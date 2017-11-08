@@ -19,12 +19,12 @@ module TestBench();
 // clock signal generation
 initial begin
      DATA_CLK <= 0;
-    forever #5 DATA_CLK = ~DATA_CLK;
+    forever #25 DATA_CLK = ~DATA_CLK;
 end
 initial begin
     FRAME_CLK <= 0;
-    #3
-    forever #20 FRAME_CLK = ~FRAME_CLK;
+    #12
+    forever #100 FRAME_CLK = ~FRAME_CLK;
 end
 
 
@@ -34,21 +34,26 @@ begin
     for (integer i=0; i < 13; i=i+2) begin
         CH_X_A <= data[13-i];
         CH_X_B <= data[12-i];
-        #5;
+        #25;
     end
     CH_X_A <= 1'b0;
     CH_X_B <= 1'b0;
-    #5;
+    #25;
 end
 endtask
 
 initial begin
     CH_X_A <= 0;
     CH_X_B <= 0;
-    #(10*6 + 4)
+    #(100*3 + 12)
 
-    shift_out_data(14'h2AAA);
-    shift_out_data(14'h2BBB);
+    shift_out_data(14'h1);
+    shift_out_data(14'h2);
+    shift_out_data(14'h3);
+    shift_out_data(14'h4);
+    shift_out_data(14'h5);
+    shift_out_data(14'h6);
+    shift_out_data(14'h7);
 end
 
 endmodule
