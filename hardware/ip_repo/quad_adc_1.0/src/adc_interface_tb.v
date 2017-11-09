@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-module TestBench();
+module adc_interface_tb();
 
     reg DATA_CLK;
     reg FRAME_CLK;

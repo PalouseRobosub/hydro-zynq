@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-module TestBench();
+module axi_stream_tb();
 
     localparam integer C_M_AXIS_TDATA_WIDTH = 32;
 
