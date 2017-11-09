@@ -400,7 +400,7 @@
     end
 
     // Add user logic here
-    assign ENCODE_CLK_DIV = slv_reg_0;
+    assign ENCODE_CLK_DIV = slv_reg0;
 
     // User logic ends
 
