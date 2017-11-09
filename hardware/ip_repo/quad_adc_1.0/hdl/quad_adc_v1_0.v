@@ -29,6 +29,15 @@
     (
         // Users to add ports here
 
+        //ADC
+        output wire ENCODE_CLK,
+        input wire DATA_CLK,
+        input wire FRAME_CLK,
+        input wire CH_1_A, CH_1_B,
+        input wire CH_2_A, CH_2_B,
+        input wire CH_3_A, CH_3_B,
+        input wire CH_4_A, CH_4_B,
+
         // User ports ends
         // Do not modify the ports beyond this line
 
@@ -89,11 +98,22 @@
         input wire  s_axi_intr_rready,
         output wire  irq
     );
+
+    // interconnects
+    wire [13:0] AXI_CH_1_DATA, AXI_CH_2_DATA, AXI_CH_3_DATA, AXI_CH_4_DATA;
+    wire [13:0] ADC_CH_1_DATA, ADC_CH_2_DATA, ADC_CH_3_DATA, ADC_CH_4_DATA;
+    wire AXI_DATA_VALID;
+    wire [C_S00_AXI_DATA_WIDTH-1 : 0] ENCODE_CLK_DIV;
+
 // Instantiation of Axi Bus Interface S00_AXI
     quad_adc_v1_0_S00_AXI # (
         .C_S_AXI_DATA_WIDTH(C_S00_AXI_DATA_WIDTH),
         .C_S_AXI_ADDR_WIDTH(C_S00_AXI_ADDR_WIDTH)
     ) quad_adc_v1_0_S00_AXI_inst (
+        // output registers
+        .ENCODE_CLK_DIV(ENCODE_CLK_DIV),
+
+        // axi bus ports
         .S_AXI_ACLK(s00_axi_aclk),
         .S_AXI_ARESETN(s00_axi_aresetn),
         .S_AXI_AWADDR(s00_axi_awaddr),
@@ -119,9 +139,16 @@
 
 // Instantiation of Axi Bus Interface M00_AXIS
     quad_adc_v1_0_M00_AXIS # (
-        .C_M_AXIS_TDATA_WIDTH(C_M00_AXIS_TDATA_WIDTH),
-        .C_M_START_COUNT(C_M00_AXIS_START_COUNT)
+        .C_M_AXIS_TDATA_WIDTH(C_M00_AXIS_TDATA_WIDTH)
     ) quad_adc_v1_0_M00_AXIS_inst (
+        // user ports
+        .CH_A_DATA_IN({2'b0,AXI_CH_1_DATA}),
+        .CH_B_DATA_IN({2'b0,AXI_CH_2_DATA}),
+        .CH_C_DATA_IN({2'b0,AXI_CH_3_DATA}),
+        .CH_D_DATA_IN({2'b0,AXI_CH_4_DATA}),
+        .DATA_IN_VALID(AXI_DATA_VALID),
+
+        // axi bus ports
         .M_AXIS_ACLK(m00_axis_aclk),
         .M_AXIS_ARESETN(m00_axis_aresetn),
         .M_AXIS_TVALID(m00_axis_tvalid),
@@ -166,6 +193,64 @@
     );
 
     // Add user logic here
+
+    // ADC Interfaces
+    quad_adc_interface adc_ch_1 (
+        .DATA_CLK(DATA_CLK),
+        .FRAME_CLK(FRAME_CLK),
+        .CH_X_A(CH_1_A),
+        .CH_X_B(CH_1_B),
+        .CH_X_DATA(ADC_CH_1_DATA)
+    );
+    quad_adc_interface adc_ch_2 (
+        .DATA_CLK(DATA_CLK),
+        .FRAME_CLK(FRAME_CLK),
+        .CH_X_A(CH_2_A),
+        .CH_X_B(CH_2_B),
+        .CH_X_DATA(ADC_CH_2_DATA)
+    );
+    quad_adc_interface adc_ch_3 (
+        .DATA_CLK(DATA_CLK),
+        .FRAME_CLK(FRAME_CLK),
+        .CH_X_A(CH_3_A),
+        .CH_X_B(CH_3_B),
+        .CH_X_DATA(ADC_CH_3_DATA)
+    );
+    quad_adc_interface adc_ch_4 (
+        .DATA_CLK(DATA_CLK),
+        .FRAME_CLK(FRAME_CLK),
+        .CH_X_A(CH_4_A),
+        .CH_X_B(CH_4_B),
+        .CH_X_DATA(ADC_CH_4_DATA)
+    );
+
+    // Clock Domain Crossers
+    clock_domain_crosser clock_domain_crosser_inst (
+        .RESET_N(m00_axis_aresetn),
+        .DATA_CLK(DATA_CLK),
+        .FRAME_CLK(FRAME_CLK),
+        .AXI_CLK(m00_axis_aclk),
+        .AXI_DATA_VALID(AXI_DATA_VALID),
+
+        .ADC_CH_1_DATA(ADC_CH_1_DATA),
+        .ADC_CH_2_DATA(ADC_CH_2_DATA),
+        .ADC_CH_3_DATA(ADC_CH_3_DATA),
+        .ADC_CH_4_DATA(ADC_CH_4_DATA),
+
+        .AXI_CH_1_DATA(AXI_CH_1_DATA),
+        .AXI_CH_2_DATA(AXI_CH_2_DATA),
+        .AXI_CH_3_DATA(AXI_CH_3_DATA),
+        .AXI_CH_4_DATA(AXI_CH_4_DATA)
+    );
+
+    // Encode CLK Generator
+    adc_encode_clk_gen adc_encode_clk_gen_inst (
+        .AXI_CLK(m00_axis_aclk),
+        .RESET_N(m00_axis_aresetn),
+        .CLOCK_DIV(ENCODE_CLK_DIV),
+        .ENCODE_CLK(ENCODE_CLK)
+    );
+
 
     // User logic ends
 
