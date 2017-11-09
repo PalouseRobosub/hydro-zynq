@@ -141,4 +141,3 @@ set_input_delay -clock [get_clocks DATA_CLK] -max -add_delay 15.000 [get_ports C
 
 create_clock -period 10.000 -name m00_axis_aclk -waveform {0.000 5.000} [get_ports m00_axis_aclk]
 create_clock -period 10.000 -name s00_axi_aclk -waveform {0.000 5.000} [get_ports s00_axi_aclk]
-create_clock -period 10.000 -name s_axi_intr_aclk -waveform {0.000 5.000} [get_ports s_axi_intr_aclk]

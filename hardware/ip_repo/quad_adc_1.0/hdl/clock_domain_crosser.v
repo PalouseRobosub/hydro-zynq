@@ -42,8 +42,14 @@
 
     reg [1:0] adc_state;
     always @(posedge DATA_CLK or negedge RESET_N) begin
-        if(!RESET_N)
+        if(!RESET_N) begin
             adc_state <= ADC_IDLE_STATE;
+            ADC_CH_1_DATA_REG <= 0;
+            ADC_CH_2_DATA_REG <= 0;
+            ADC_CH_3_DATA_REG <= 0;
+            ADC_CH_4_DATA_REG <= 0;
+            adc_data_valid  <= 0;
+        end
         else
             case (adc_state)
                 ADC_IDLE_STATE: begin
