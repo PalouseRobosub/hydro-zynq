@@ -9,15 +9,27 @@
         input RESET_N,
         input wire DATA_CLK,
         input wire FRAME_CLK,
-        input wire [13 : 0] ADC_CH_X_DATA,
+        input wire [13 : 0] ADC_CH_1_DATA,
+        input wire [13 : 0] ADC_CH_2_DATA,
+        input wire [13 : 0] ADC_CH_3_DATA,
+        input wire [13 : 0] ADC_CH_4_DATA,
 
         input wire AXI_CLK,
         output wire AXI_DATA_VALID,
-        output wire [13 : 0] AXI_CH_X_DATA
+        output wire [13 : 0] AXI_CH_1_DATA,
+        output wire [13 : 0] AXI_CH_2_DATA,
+        output wire [13 : 0] AXI_CH_3_DATA,
+        output wire [13 : 0] AXI_CH_4_DATA
     );
 
-    reg [13 : 0] ADC_CH_X_DATA_REG;
-    reg [13 : 0] AXI_CH_X_DATA_REG;
+    reg [13 : 0] ADC_CH_1_DATA_REG;
+    reg [13 : 0] AXI_CH_1_DATA_REG;
+    reg [13 : 0] ADC_CH_2_DATA_REG;
+    reg [13 : 0] AXI_CH_2_DATA_REG;
+    reg [13 : 0] ADC_CH_3_DATA_REG;
+    reg [13 : 0] AXI_CH_3_DATA_REG;
+    reg [13 : 0] ADC_CH_4_DATA_REG;
+    reg [13 : 0] AXI_CH_4_DATA_REG;
     reg adc_data_valid;
     reg data_read;
 
@@ -41,7 +53,10 @@
 
                 ADC_WAIT_FOR_FRAME_STATE: begin
                     if (FRAME_CLK == 1) begin
-                        ADC_CH_X_DATA_REG <= ADC_CH_X_DATA;
+                        ADC_CH_1_DATA_REG <= ADC_CH_1_DATA;
+                        ADC_CH_2_DATA_REG <= ADC_CH_2_DATA;
+                        ADC_CH_3_DATA_REG <= ADC_CH_3_DATA;
+                        ADC_CH_4_DATA_REG <= ADC_CH_4_DATA;
                         adc_data_valid <= 1;
                         adc_state <= ADC_WAIT_FOR_DATA_READ_STATE;
                     end
@@ -64,7 +79,10 @@
     always @(posedge AXI_CLK) begin
         if(!RESET_N) begin
             axi_state <= AXI_IDLE_STATE;
-            AXI_CH_X_DATA_REG <= 0;
+            AXI_CH_1_DATA_REG <= 0;
+            AXI_CH_2_DATA_REG <= 0;
+            AXI_CH_3_DATA_REG <= 0;
+            AXI_CH_4_DATA_REG <= 0;
             axi_data_valid <= 0;
             data_read <= 0;
         end
@@ -72,7 +90,10 @@
             case(axi_state)
                 AXI_IDLE_STATE: begin
                     if (adc_data_valid == 1) begin
-                        AXI_CH_X_DATA_REG <= ADC_CH_X_DATA_REG;
+                        AXI_CH_1_DATA_REG <= ADC_CH_1_DATA_REG;
+                        AXI_CH_2_DATA_REG <= ADC_CH_2_DATA_REG;
+                        AXI_CH_3_DATA_REG <= ADC_CH_3_DATA_REG;
+                        AXI_CH_4_DATA_REG <= ADC_CH_4_DATA_REG;
                         data_read <= 1;
                         axi_data_valid <= 1;
                         axi_state <= AXI_HANDSHAKE_STATE;
@@ -89,7 +110,10 @@
             endcase
     end
 
-    assign AXI_CH_X_DATA = AXI_CH_X_DATA_REG;
+    assign AXI_CH_1_DATA = AXI_CH_1_DATA_REG;
+    assign AXI_CH_2_DATA = AXI_CH_2_DATA_REG;
+    assign AXI_CH_3_DATA = AXI_CH_3_DATA_REG;
+    assign AXI_CH_4_DATA = AXI_CH_4_DATA_REG;
     assign AXI_DATA_VALID = axi_data_valid;
 
     endmodule

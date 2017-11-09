@@ -4,19 +4,33 @@ module tb_clock_domain_crosser;
 reg RESET_N;
 reg DATA_CLK;
 reg FRAME_CLK;
-reg [13:0] ADC_CH_X_DATA;
+reg [13:0] ADC_CH_1_DATA;
+reg [13:0] ADC_CH_2_DATA;
+reg [13:0] ADC_CH_3_DATA;
+reg [13:0] ADC_CH_4_DATA;
 reg AXI_CLK;
 wire AXI_DATA_VALID;
-wire [13:0] AXI_CH_X_DATA;
+wire [13:0] AXI_CH_1_DATA;
+wire [13:0] AXI_CH_2_DATA;
+wire [13:0] AXI_CH_3_DATA;
+wire [13:0] AXI_CH_4_DATA;
 
 clock_domain_crosser uut (
-    .ADC_CH_X_DATA(ADC_CH_X_DATA),
     .RESET_N(RESET_N),
     .DATA_CLK(DATA_CLK),
     .FRAME_CLK(FRAME_CLK),
     .AXI_CLK(AXI_CLK),
     .AXI_DATA_VALID(AXI_DATA_VALID),
-    .AXI_CH_X_DATA(AXI_CH_X_DATA)
+
+    .ADC_CH_1_DATA(ADC_CH_1_DATA),
+    .ADC_CH_2_DATA(ADC_CH_2_DATA),
+    .ADC_CH_3_DATA(ADC_CH_3_DATA),
+    .ADC_CH_4_DATA(ADC_CH_4_DATA),
+
+    .AXI_CH_1_DATA(AXI_CH_1_DATA),
+    .AXI_CH_2_DATA(AXI_CH_2_DATA),
+    .AXI_CH_3_DATA(AXI_CH_3_DATA),
+    .AXI_CH_4_DATA(AXI_CH_4_DATA)
 );
 
 parameter AXI_PERIOD = 10;
@@ -49,9 +63,17 @@ initial begin
 end
 
 initial begin
-    ADC_CH_X_DATA <= 14'hABC;
-    forever
-        #(FRAME_PERIOD) ADC_CH_X_DATA <= ADC_CH_X_DATA  + 1;
+    ADC_CH_1_DATA <= 14'hA00;
+    ADC_CH_2_DATA <= 14'hB00;
+    ADC_CH_3_DATA <= 14'hC00;
+    ADC_CH_4_DATA <= 14'hD00;
+    forever begin
+        #(FRAME_PERIOD);
+        ADC_CH_1_DATA <= ADC_CH_1_DATA  + 1;
+        ADC_CH_2_DATA <= ADC_CH_2_DATA  + 1;
+        ADC_CH_3_DATA <= ADC_CH_3_DATA  + 1;
+        ADC_CH_4_DATA <= ADC_CH_4_DATA  + 1;
+    end
 end
 
 initial begin
