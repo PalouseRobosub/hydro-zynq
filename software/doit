@@ -1,0 +1,6 @@
+#!/bin/bash -e
+
+./mk $1
+sudo mount /dev/mmcblk0p1 /mnt
+sudo cp build/BOOT.bin /mnt/BOOT.bin
+sudo umount /mnt
