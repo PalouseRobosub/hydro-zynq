@@ -22,11 +22,20 @@ result_t read_sample(fifo_stream_t *data_stream, sample_t *sample, tick_t timeou
 
     AbortIfNot(packet_available, fail);
 
-    uint32_t data[2];
+    uint32_t data[512];
     size_t len;
-    AbortIfNot(get_packet(data_stream, data, 2, &len), fail);
+    if (get_packet(data_stream, data, 512, &len) == fail)
+    {
+        reset_fifo_stream(data_stream);
+        AbortIfNot(read_sample(data_stream, sample, timeout), fail);
+        return success;
+    }
 
-    AbortIfNot(len == 2, fail);
+    if (len != 8)
+    {
+        uprintf("Got odd length (%d) packet.\n", len);
+        return success;
+    }
 
     /*
      * Translate the packet into a measurement.

@@ -1,9 +1,27 @@
 #!/bin/bash -e
 
+if [[ $# -ne 2 ]];
+then
+    echo "Usage: <application> <bitstream>"
+    exit -1
+fi
+
 cd build/
 touch fake.o
 rm *.o
 arm-none-eabi-gcc -c -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -Wl,-build-id=none -specs=build_files/Xilinx.spec ../$1 ../src/*.c -I ../src/ -I ../bit -I ../include/external -std=c11 -Wall -Werror
 cd ../
 arm-none-eabi-gcc -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -Wl,-build-id=none -specs=build/build_files/Xilinx.spec -Wl,-T -Wl,build/build_files/lscript.ld build/*.o -o build/app.elf -Wl,--start-group,-lxil,-llwip4,-lgcc,-lc,--end-group -Llib/ -Wl,-Map=build/app.map
+
+
+cat <<EOF > build/build_files/application.bif
+//arch = zynq; split = false; format = BIN
+the_ROM_image:
+{
+	[bootloader]./bin/fsbl.elf
+    $2
+	./build/app.elf
+}
+EOF
+
 bootgen -image build/build_files/application.bif -o build/BOOT.bin -w

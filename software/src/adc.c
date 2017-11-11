@@ -5,7 +5,7 @@
 #include "system.h"
 #include "time_util.h"
 
-result_t init_adc(spi_driver_t *spi)
+result_t init_adc(spi_driver_t *spi, int verify)
 {
     AbortIfNot(spi, fail);
     AbortIfNot(spi->regs, fail);
@@ -13,13 +13,26 @@ result_t init_adc(spi_driver_t *spi)
     /*
      * Reset the ADC using a software reset.
      */
-    AbortIfNot(write_verify_adc_register(spi, 0, 0x80, 0x00), fail);
+    if (verify)
+    {
+        AbortIfNot(write_verify_adc_register(spi, 0, 0x80, 0x00), fail);
 
-    /*
-     * Configure the ADC to utilize 1.75mA drive, 16-bit 2-lane serialization,
-     * and internal termination.
-     */
-    AbortIfNot(write_verify_adc_register(spi, 2, 0xF0, 0xF0), fail);
+        /*
+         * Set up the test pattern.
+         */
+        AbortIfNot(write_verify_adc_register(spi, 4, 0x0F, 0x0F), fail);
+        //AbortIfNot(write_verify_adc_register(spi, 3, 0x80, 0x80), fail);
+    }
+    else
+    {
+        AbortIfNot(write_adc_register(spi, 0, 0x80), fail);
+
+        /*
+         * Set up the test pattern.
+         */
+        AbortIfNot(write_adc_register(spi, 4, 0x0F), fail);
+        //AbortIfNot(write_adc_register(spi, 3, 0x80), fail);
+    }
 
     return success;
 }

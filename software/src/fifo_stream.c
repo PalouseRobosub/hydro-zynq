@@ -14,6 +14,15 @@ result_t init_fifo_stream(fifo_stream_t *fifo, uintptr_t base_addr)
      */
     fifo->reg_base = (struct FifoStreamRegs *)base_addr;
 
+    AbortIfNot(reset_fifo_stream(fifo), fail);
+
+    return success;
+}
+
+result_t reset_fifo_stream(fifo_stream_t *fifo)
+{
+    AbortIfNot(fifo, fail);
+
     /*
      * Initialize, reset, and start the interface.
      */
@@ -48,12 +57,15 @@ result_t get_packet(fifo_stream_t *fifo, uint32_t *data, const size_t max_len, s
     AbortIfNot(has_packet(fifo, &packet_available), fail);
     AbortIfNot(packet_available, fail);
 
-    size_t packet_len = fifo->reg_base->RLR / fifo->reg_base->RDFO;
-    AbortIfNot((max_len * sizeof(*data)) >= packet_len, fail);
-
-    for (size_t i = 0; i < packet_len; ++i)
+    uint32_t packet_len = fifo->reg_base->RLR;
+    if (max_len * 4 < packet_len)
     {
-        AbortIfNot(get_word(fifo, &data[i]), fail);
+        return fail;
+    }
+
+    for (size_t i = 0; i < packet_len / 4; ++i)
+    {
+        data[i] = fifo->reg_base->RDFD;
     }
 
     *len = packet_len;
@@ -65,9 +77,6 @@ result_t get_word(fifo_stream_t *fifo, uint32_t *word)
     AbortIfNot(fifo, fail);
     AbortIfNot(word, fail);
     AbortIfNot(fifo->reg_base, fail);
-
-    uint32_t count = fifo->reg_base->RLR;
-    AbortIfNot(count % 4 == 0, fail);
 
     *word = fifo->reg_base->RDFD;
 
