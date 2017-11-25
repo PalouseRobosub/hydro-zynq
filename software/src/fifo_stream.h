@@ -12,9 +12,7 @@ result_t init_fifo_stream(fifo_stream_t *fifo, uintptr_t base_addr);
 
 result_t reset_fifo_stream(fifo_stream_t *fifo);
 
-result_t has_packet(fifo_stream_t *fifo, bool *packet_available);
-
-result_t get_word(fifo_stream_t *fifo, uint32_t *word);
+result_t get_fifo_packets(fifo_stream_t *fifo, uint32_t *packets);
 
 result_t get_packet(fifo_stream_t *fifo, uint32_t *data, const size_t max_len, size_t *len);
 

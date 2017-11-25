@@ -14,10 +14,7 @@
 
 #define MAX_SAMPLES (SAMPLING_FREQUENCY/1000 * 2100)
 
-/*
- * Address definitions for the FPGA fabric.
- */
-#define STREAM_FIFO_BASE_ADDRESS 0x43c00000
+#define SAMPLES_PER_PACKET 128
 
 /*
  * UDP port definitions.

@@ -1,4 +1,5 @@
 #include "abort.h"
+#include "time_util.h"
 #include "network_stack.h"
 #include "system.h"
 #include "lwip/udp.h"
@@ -40,7 +41,7 @@ int main()
      */
     set_interrupts(true);
     uint32_t cpsr;
-    asm volatile("mrs %0, cpsr" : "=r"(cpsr));
+    __asm volatile("mrs %0, cpsr" : "=r"(cpsr));
 
     uprintf("CPSR: %x\n", cpsr);
 
@@ -64,7 +65,7 @@ int main()
             uprintf("Aborting UDP send\n");
         }
         set_board_led(false);
-        print("Packet sent\n");
+        uprintf("Packet sent\n");
 
         delay(1000);
     }

@@ -9,7 +9,9 @@
 #include "abort.h"
 #include "system_params.h"
 #include "system.h"
-#include "fifo_stream.h"
+#include "dma.h"
+#include "adc.h"
+#include "spi.h"
 #include "time_util.h"
 #include "lwip/udp.h"
 #include "lwip/ip.h"
@@ -19,10 +21,19 @@
 #include "correlation_util.h"
 #include "transmission_util.h"
 
+#include "adc_dma_addresses.h"
+
 /**
- * The stream FIFO used for reading samples.
+ * The DMA engine for reading samples.
  */
-fifo_stream_t sample_data_stream;
+dma_engine_t dma;
+
+/**
+ * The SPI driver for controlling the ADC.
+ */
+spi_driver_t adc_spi;
+
+adc_driver_t adc;
 
 /**
  * The array of current samples.
@@ -37,12 +48,7 @@ void receive_command(void *arg, struct udp_pcb *upcb, struct pbuf *p, struct ip_
     pbuf_free(p);
 }
 
-/**
- * Main entry point into the application.
- *
- * @return Zero upon success.
- */
-int main()
+result_t go()
 {
     /*
      * Initialize the system.
@@ -65,14 +71,23 @@ int main()
     uprintf("Network stack initialized\n");
 
     /*
-     * Configure the ADC.
+     * Initialize the DMA engine for reading samples.
      */
-    //TODO Configure the ADC.
+     AbortIfNot(initialize_dma(&dma, DMA_BASE_ADDRESS), fail);
 
     /*
-     * Set up the AXI FIFO stream.
+     * Configure the ADC.
      */
-    AbortIfNot(init_fifo_stream(&sample_data_stream, STREAM_FIFO_BASE_ADDRESS), fail);
+    AbortIfNot(init_spi(&adc_spi, SPI_BASE_ADDRESS), fail);
+
+    bool verify_write = false;
+    bool use_test_pattern = false;
+    AbortIfNot(init_adc(&adc, &adc_spi, ADC_BASE_ADDRESS, verify_write, use_test_pattern), fail);
+
+    /*
+     * Set the sample rate to 5MHz.
+     */
+    adc.regs->clk_div = 10;
 
     /*
      * Bind the command port, data stream port, and the result output port.
@@ -80,7 +95,7 @@ int main()
     udp_socket_t command_socket, data_stream_socket, result_socket;
 
     struct ip_addr dest_ip;
-    IP4_ADDR(&dest_ip, 192, 168, 0, 2);
+    IP4_ADDR(&dest_ip, 192, 168, 0, 250);
 
     AbortIfNot(init_udp(&command_socket), fail);
     AbortIfNot(bind_udp(&command_socket, IP_ADDR_ANY, COMMAND_SOCKET_PORT, receive_command), fail);
@@ -94,8 +109,10 @@ int main()
     uprintf("System initialization complete. Start time: %d ms\n",
             ticks_to_ms(get_system_time()));
 
-    bool sync = false;
-    tick_t previous_ping_tick = 0;
+    set_interrupts(true);
+
+    //bool sync = false;
+    //tick_t previous_ping_tick = get_system_time();
     while (1)
     {
         /*
@@ -103,82 +120,117 @@ int main()
          */
         dispatch_network_stack();
 
-        /*
-         * Find sync for the start of a ping if we are not debugging.
-         */
-        if (!sync && !debug_stream)
+        ///*
+        // * Find sync for the start of a ping if we are not debugging.
+        // */
+        //if (!sync && !debug_stream)
+        //{
+        //    while (!previous_ping_tick)
+        //    {
+        //        AbortIfNot(acquire_sync(&dma,
+        //                                samples,
+        //                                MAX_SAMPLES,
+        //                                &previous_ping_tick), fail);
+        //    }
+        //}
+
+        ///*
+        // * Fast forward the previous ping tick until the most likely time
+        // * of the most recent ping.
+        // */
+        //while (get_system_time() > (previous_ping_tick + ms_to_ticks(1900)))
+        //{
+        //    previous_ping_tick += ms_to_ticks(2000);
+        //}
+
+        ///*
+        // * Wait until the ping is about to come (50ms before).
+        // */
+        //busywait(previous_ping_tick - get_system_time() - ms_to_ticks(50));
+
+        ///*
+        // * Record the ping. When debugging, over 2 seconds of data should be
+        // * recovered.
+        // */
+        //uint32_t sample_duration_ms = (debug_stream)? 2100 : 200;
+
+        uint32_t sample_duration_ms = 100;
+        uint32_t samples_to_take = sample_duration_ms / 1000.0 * SAMPLING_FREQUENCY;
+        if (samples_to_take % SAMPLES_PER_PACKET)
         {
-            while (!previous_ping_tick)
-            {
-                AbortIfNot(acquire_sync(&sample_data_stream,
-                                        samples,
-                                        MAX_SAMPLES,
-                                        ms_to_ticks(2000),
-                                        &previous_ping_tick), fail);
-            }
+            samples_to_take += (SAMPLES_PER_PACKET - (samples_to_take % SAMPLES_PER_PACKET));
         }
 
-        /*
-         * Fast forward the previous ping tick until the most likely time
-         * of the most recent ping.
-         */
-        while (get_system_time() > (previous_ping_tick + ms_to_ticks(1900)))
-        {
-            previous_ping_tick += ms_to_ticks(2000);
-        }
+        const size_t num_samples = samples_to_take;
+        AbortIfNot(record(&dma, samples, samples_to_take), fail);
 
-        /*
-         * Record the ping. When debugging, over 2 seconds of data should be
-         * recovered.
-         */
-        uint32_t sample_duration_ms = (debug_stream)? 2100 : 200;
+        ///*
+        // * Filter the received signal.
+        // */
+        //filter_coefficients_t coefficients;
+        //AbortIfNot(filter(samples, num_samples, &coefficients), fail);
 
-        size_t num_samples;
-        AbortIfNot(record(&sample_data_stream, samples, MAX_SAMPLES, &num_samples,
-                    ms_to_ticks(sample_duration_ms)), fail);
+        ///*
+        // * Truncate the data around the ping.
+        // */
+        //size_t start_index, end_index;
+        //bool located;
+        //AbortIfNot(truncate(samples, num_samples, &start_index, &end_index, &located), fail);
+        //if (!located)
+        //{
+        //    uprintf("Failed to find the ping.\n");
+        //}
 
-        /*
-         * Filter the received signal.
-         */
-        filter_coefficients_t coefficients;
-        AbortIfNot(filter(samples, num_samples, &coefficients), fail);
+        ///*
+        // * Locate the ping samples.
+        // */
+        //size_t start_index = 0;
+        //size_t end_index = num_samples;
+        //const sample_t *ping_start = &samples[start_index];
+        //const size_t ping_length = end_index - start_index;
 
-        /*
-         * Truncate the data around the ping.
-         */
-        size_t start_index, end_index;
-        bool located;
-        AbortIfNot(truncate(samples, num_samples, &start_index, &end_index, &located), fail);
-        if (!located)
-        {
-            uprintf("Failed to find the ping.\n");
-        }
+        ///*
+        // * Perform the correlation on the data.
+        // */
+        //correlation_result_t result;
+        //tick_t start_time = get_system_time();
+        //uprintf("Beginning correlation...\n");
+        //AbortIfNot(cross_correlate(ping_start, ping_length, &result), fail);
 
-        /*
-         * Locate the ping samples.
-         */
-        const sample_t *ping_start = &samples[start_index];
-        const size_t ping_length = end_index - start_index;
+        //tick_t duration_time = get_system_time() - start_time;
+        //uprintf("Correlation took %d ms\n", ticks_to_ms(duration_time));
+        //uprintf("Correlation results: %d %d %d\n", result.channel_delay_ns[0], result.channel_delay_ns[1], result.channel_delay_ns[2]);
 
-        /*
-         * Perform the correlation on the data.
-         */
-        correlation_result_t result;
-        AbortIfNot(cross_correlate(ping_start, ping_length, &result), fail);
-
-        /*
-         * Relay the result.
-         */
-        AbortIfNot(send_result(&result_socket, &result), fail);
+        ///*
+        // * Relay the result.
+        // */
+        //AbortIfNot(send_result(&result_socket, &result), fail);
 
         /*
          * If debug streams are enabled, transmit the data used for the
          * correlation.
          */
-        if (debug_stream)
+        //if (debug_stream)
         {
+            uprintf("Transmitting...\n");
+            tick_t start_transmit = get_system_time();
             AbortIfNot(send_data(&data_stream_socket, samples, num_samples), fail);
-            debug_stream = false;
+            tick_t transmit_duration = get_system_time() - start_transmit;
+
+            uprintf("Transmission took %f seconds.\n", ticks_to_seconds(transmit_duration));
+            //debug_stream = false;
         }
     }
+}
+
+/**
+ * Main entry point into the application.
+ *
+ * @return Zero upon success.
+ */
+int main()
+{
+    go();
+
+    while(1);
 }

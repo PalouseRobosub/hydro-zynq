@@ -64,16 +64,16 @@ result_t connect_udp(udp_socket_t *socket, struct ip_addr *ip, const uint16_t po
     return success;
 }
 
-result_t send_udp(udp_socket_t *socket, char *data)
+result_t send_udp(udp_socket_t *socket, char *data, size_t len)
 {
     AbortIfNot(socket, fail);
     AbortIfNot(data, fail);
 
-    struct pbuf *packet_buffer = pbuf_alloc(PBUF_TRANSPORT, strlen(data), PBUF_RAM);
+    struct pbuf *packet_buffer = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_RAM);
     AbortIfNot(packet_buffer, fail);
-    memcpy(packet_buffer->payload, data, strlen(data));
+    memcpy(packet_buffer->payload, data, len);
 
-    result_t ret = udp_send(socket->pcb, packet_buffer);
+    int ret = udp_send(socket->pcb, packet_buffer);
 
     pbuf_free(packet_buffer);
 

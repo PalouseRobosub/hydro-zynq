@@ -75,7 +75,7 @@ result_t cross_correlate(const sample_t *data,
     /*
      * Convert the max correlation index into a time measurement.
      */
-    double sample_period_ns = 1000000000 / SAMPLING_FREQUENCY;
+    double sample_period_ns = 1000000000.0 / SAMPLING_FREQUENCY;
     for (size_t i = 0; i < 3; ++i)
     {
         int32_t num_samples_right_shifted = (len - 1) - max_correlation_indices[i];
@@ -83,6 +83,11 @@ result_t cross_correlate(const sample_t *data,
     }
 
     return success;
+}
+
+size_t ticks_to_samples(tick_t ticks)
+{
+    return (size_t)(ticks / ((float)CPU_CLOCK_HZ / SAMPLING_FREQUENCY));
 }
 
 result_t truncate(const sample_t *data,
@@ -96,7 +101,7 @@ result_t truncate(const sample_t *data,
     AbortIfNot(start_index, fail);
     AbortIfNot(end_index, fail);
 
-    tick_t ping_start_time = 0;
+    size_t ping_start_index;
     *found = false;
     for (size_t i = 0; i < len; ++i)
     {
@@ -104,7 +109,7 @@ result_t truncate(const sample_t *data,
         {
             if (!found && data[i].sample[k] > ADC_THRESHOLD)
             {
-                ping_start_time = data[i].timestamp;
+                ping_start_index = i;
                 *found = true;
                 break;
             }
@@ -116,29 +121,27 @@ result_t truncate(const sample_t *data,
         }
     }
 
-    tick_t start_ping_truncated = ping_start_time - ticks_to_ms(1);
-    tick_t end_ping_truncated = ping_start_time + ticks_to_ms(5);
+    AbortIfNot(found, fail);
 
-    *start_index = 0;
-    *end_index = len - 1;
-
-    for (size_t i = 0; i < len; ++i)
+    size_t indices_before_start = ticks_to_samples(ms_to_ticks(1));
+    size_t ping_start_truncated = ping_start_index;
+    if (indices_before_start > ping_start_truncated)
     {
-        if (data[i].timestamp >= start_ping_truncated)
-        {
-            *start_index = i;
-            break;
-        }
+        ping_start_truncated = 0;
+    }
+    else
+    {
+        ping_start_truncated -= indices_before_start;
     }
 
-    for (size_t i = *start_index + 1; i < len; ++i)
+    size_t indices_after_end = ping_start_index + ticks_to_samples(ticks_to_ms(5));
+    if (indices_after_end >= len)
     {
-        if (data[i].timestamp >= end_ping_truncated)
-        {
-            *end_index= i;
-            break;
-        }
+        indices_after_end = len - 1;
     }
+
+    *start_index = ping_start_truncated;
+    *end_index = indices_after_end;
 
     return success;
 }

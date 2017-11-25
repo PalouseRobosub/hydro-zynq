@@ -13,7 +13,7 @@ result_t init_udp(udp_socket_t *socket);
 
 result_t sendto_udp(udp_socket_t *socket, struct ip_addr *ip, const uint16_t port, char *data);
 
-result_t send_udp(udp_socket_t *socket, char *data);
+result_t send_udp(udp_socket_t *socket, char *data, size_t len);
 
 result_t connect_udp(udp_socket_t *socket, struct ip_addr *ip, const uint16_t port);
 

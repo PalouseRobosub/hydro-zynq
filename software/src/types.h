@@ -6,8 +6,8 @@
 
 typedef enum bool
 {
-    false,
-    true
+    false = 0,
+    true = 1
 } bool;
 
 /**
@@ -34,11 +34,6 @@ typedef uint64_t tick_t;
  */
 typedef struct sample
 {
-    /*
-     * The system time the sample was taken at.
-     */
-    tick_t timestamp;
-
     /*
      * The analog sample measurement for each ADC channel.
      */

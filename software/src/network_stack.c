@@ -39,11 +39,6 @@ result_t init_network_stack(struct ip_addr ip_address, struct ip_addr netmask,
      */
     netif_set_up(&ethernet_interface);
 
-    /*
-     * Set up the TCP fast and slow timer interrupts.
-     */
-    //TODO: Determine if lwIP handles TCP timers internally.
-
     return success;
 }
 

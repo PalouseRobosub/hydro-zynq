@@ -5,16 +5,13 @@
 
 struct FifoStreamRegs
 {
-    uint32_t ISR;
-    uint32_t UNUSED1[2];
+    volatile uint32_t ISR;
+    volatile uint32_t UNUSED1[5];
 
-    uint32_t TDFV;
-    uint32_t UNUSED2[2];
-
-    uint32_t RDFR;
-    uint32_t RDFO;
-    uint32_t RDFD;
-    uint32_t RLR;
+    volatile uint32_t RDFR;
+    volatile uint32_t RDFO;
+    volatile uint32_t RDFD;
+    volatile uint32_t RLR;
 };
 
 #endif

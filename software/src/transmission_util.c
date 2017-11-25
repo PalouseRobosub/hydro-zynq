@@ -3,6 +3,7 @@
 #include "network_stack.h"
 
 #include "types.h"
+#include "time_util.h"
 #include "abort.h"
 #include "udp.h"
 
@@ -35,7 +36,7 @@ result_t send_result(udp_socket_t *socket, correlation_result_t *result)
     /*
      * Send the data over the socket.
      */
-    AbortIfNot(send_udp(socket, str), fail);
+    AbortIfNot(send_udp(socket, str, strlen(str)), fail);
 
     return success;
 }
@@ -51,7 +52,7 @@ result_t send_result(udp_socket_t *socket, correlation_result_t *result)
  */
 result_t send_data(udp_socket_t *socket, sample_t *data, const size_t count)
 {
-    #define samples_per_packet 3000
+    #define samples_per_packet 300
     char buf[8 * samples_per_packet + 5];
 
     int i;
@@ -60,7 +61,7 @@ result_t send_data(udp_socket_t *socket, sample_t *data, const size_t count)
         /*
          * First, packet number in.
          */
-        int packet_number = i / 3000;
+        int packet_number = i / samples_per_packet;
         memcpy(buf, &packet_number, 4);
         for (int j = 0; j < samples_per_packet; ++j)
         {
@@ -68,15 +69,11 @@ result_t send_data(udp_socket_t *socket, sample_t *data, const size_t count)
         }
 
         /*
-         * Terminate the buffer with a zero.
-         */
-        buf[8 * samples_per_packet + 4] = 0;
-
-        /*
          * Send the data.
          */
-        AbortIfNot(send_udp(socket, buf), fail);
+        AbortIfNot(send_udp(socket, buf, 8 * samples_per_packet + 4), fail);
         dispatch_network_stack();
+        busywait(micros_to_ticks(50));
     }
 
     /*
@@ -86,7 +83,7 @@ result_t send_data(udp_socket_t *socket, sample_t *data, const size_t count)
     {
         size_t remainder = count - i * samples_per_packet;
 
-        int packet_number = i / 3000;
+        int packet_number = i / samples_per_packet;
         memcpy(buf, &packet_number, 4);
         for (int j = 0; j < remainder; ++j)
         {
@@ -98,7 +95,7 @@ result_t send_data(udp_socket_t *socket, sample_t *data, const size_t count)
         /*
          * Send the data.
          */
-        AbortIfNot(send_udp(socket, buf), fail);
+        AbortIfNot(send_udp(socket, buf, 8 * remainder + 4), fail);
         dispatch_network_stack();
     }
 

@@ -67,7 +67,7 @@ result_t go()
          * Wait until data is available in the FIFO.
          */
         sample_t sample;
-        AbortIfNot(read_sample(&stream, &sample, ms_to_ticks(10000)), fail);
+        AbortIfNot(read_sample(&stream, &sample, ms_to_ticks(100)), fail);
 
         uprintf("Samples: 0: %x 1: %x 2: %x 3: %x\n", sample.sample[0], sample.sample[1], sample.sample[2], sample.sample[3]);
     }

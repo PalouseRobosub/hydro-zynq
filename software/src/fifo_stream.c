@@ -14,7 +14,19 @@ result_t init_fifo_stream(fifo_stream_t *fifo, uintptr_t base_addr)
      */
     fifo->reg_base = (struct FifoStreamRegs *)base_addr;
 
+    fifo->reg_base->ISR = 0xFFFFFFFF;
     AbortIfNot(reset_fifo_stream(fifo), fail);
+
+    return success;
+}
+
+result_t get_fifo_packets(fifo_stream_t *fifo, uint32_t *packets)
+{
+    AbortIfNot(fifo, fail);
+    AbortIfNot(packets, fail);
+    AbortIfNot(fifo->reg_base, fail);
+
+    *packets = fifo->reg_base->RDFO;
 
     return success;
 }
@@ -36,26 +48,11 @@ result_t reset_fifo_stream(fifo_stream_t *fifo)
     return success;
 }
 
-result_t has_packet(fifo_stream_t *fifo, bool *packet_available)
-{
-    AbortIfNot(fifo, fail);
-    AbortIfNot(packet_available, fail);
-    AbortIfNot(fifo->reg_base, fail);
-
-    *packet_available = (fifo->reg_base->RDFO)? true : false;
-
-    return success;
-}
-
 result_t get_packet(fifo_stream_t *fifo, uint32_t *data, const size_t max_len, size_t *len)
 {
     AbortIfNot(fifo, fail);
     AbortIfNot(data, fail);
     AbortIfNot(len, fail);
-
-    bool packet_available;
-    AbortIfNot(has_packet(fifo, &packet_available), fail);
-    AbortIfNot(packet_available, fail);
 
     uint32_t packet_len = fifo->reg_base->RLR;
     if (max_len * 4 < packet_len)
@@ -69,16 +66,5 @@ result_t get_packet(fifo_stream_t *fifo, uint32_t *data, const size_t max_len, s
     }
 
     *len = packet_len;
-    return success;
-}
-
-result_t get_word(fifo_stream_t *fifo, uint32_t *word)
-{
-    AbortIfNot(fifo, fail);
-    AbortIfNot(word, fail);
-    AbortIfNot(fifo->reg_base, fail);
-
-    *word = fifo->reg_base->RDFD;
-
     return success;
 }
