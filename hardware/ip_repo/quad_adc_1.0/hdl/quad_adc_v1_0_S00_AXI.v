@@ -5,6 +5,7 @@
     (
         // Users to add parameters here
         parameter integer DEFAULT_ENCODE_CLK_DIV = 10,
+        parameter integer DEFAULT_SAMPLES_PER_PACKET = 128,
 
         // User parameters ends
         // Do not modify the parameters beyond this line
@@ -17,6 +18,7 @@
     (
         // Users to add ports here
         output wire [C_S_AXI_DATA_WIDTH-1 : 0] ENCODE_CLK_DIV,
+        output wire [C_S_AXI_DATA_WIDTH-1 : 0] SAMPLES_PER_PACKET,
 
         // User ports ends
         // Do not modify the ports beyond this line
@@ -106,8 +108,8 @@
     //-- Signals for user logic register space example
     //------------------------------------------------
     //-- Number of Slave Registers 4
-    reg [C_S_AXI_DATA_WIDTH-1:0]    slv_reg0;
-    reg [C_S_AXI_DATA_WIDTH-1:0]    slv_reg1;
+    reg [C_S_AXI_DATA_WIDTH-1:0]    slv_reg0 = DEFAULT_ENCODE_CLK_DIV;
+    reg [C_S_AXI_DATA_WIDTH-1:0]    slv_reg1 = DEFAULT_SAMPLES_PER_PACKET;
     reg [C_S_AXI_DATA_WIDTH-1:0]    slv_reg2;
     reg [C_S_AXI_DATA_WIDTH-1:0]    slv_reg3;
     wire     slv_reg_rden;
@@ -223,7 +225,7 @@
       if ( S_AXI_ARESETN == 1'b0 )
         begin
           slv_reg0 <= DEFAULT_ENCODE_CLK_DIV;
-          slv_reg1 <= 0;
+          slv_reg1 <= DEFAULT_SAMPLES_PER_PACKET;
           slv_reg2 <= 0;
           slv_reg3 <= 0;
         end
@@ -401,6 +403,7 @@
 
     // Add user logic here
     assign ENCODE_CLK_DIV = slv_reg0;
+    assign SAMPLES_PER_PACKET = slv_reg1;
 
     // User logic ends
 

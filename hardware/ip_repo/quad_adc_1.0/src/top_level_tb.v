@@ -30,7 +30,7 @@ quad_adc_v1_0 uut (
     .CH_2_B                 (    CH_2_B                 ),
     .CH_3_B                 (    CH_3_B                 ),
     .CH_4_B                 (    CH_4_B                 ),
-    .m00_axis_aclk         (    m_axis_aclk         ),
+    .m00_axis_aclk         (    DATA_CLK         ),
     .s00_axi_aclk         (    m_axis_aclk         ),
     .m00_axis_aresetn      (    m_axis_aresetn      ),
     .s00_axi_aresetn      (    m_axis_aresetn      ),

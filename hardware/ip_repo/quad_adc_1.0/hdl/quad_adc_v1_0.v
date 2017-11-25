@@ -100,10 +100,9 @@
     );
 
     // interconnects
-    wire [13:0] AXI_CH_1_DATA, AXI_CH_2_DATA, AXI_CH_3_DATA, AXI_CH_4_DATA;
     wire [13:0] ADC_CH_1_DATA, ADC_CH_2_DATA, ADC_CH_3_DATA, ADC_CH_4_DATA;
-    wire AXI_DATA_VALID;
     wire [C_S00_AXI_DATA_WIDTH-1 : 0] ENCODE_CLK_DIV;
+    wire [C_S00_AXI_DATA_WIDTH-1 : 0] SAMPLES_PER_PACKET;
 
 // Instantiation of Axi Bus Interface S00_AXI
     quad_adc_v1_0_S00_AXI # (
@@ -112,6 +111,7 @@
     ) quad_adc_v1_0_S00_AXI_inst (
         // output registers
         .ENCODE_CLK_DIV(ENCODE_CLK_DIV),
+        .SAMPLES_PER_PACKET(SAMPLES_PER_PACKET),
 
         // axi bus ports
         .S_AXI_ACLK(s00_axi_aclk),
@@ -142,11 +142,12 @@
         .C_M_AXIS_TDATA_WIDTH(C_M00_AXIS_TDATA_WIDTH)
     ) quad_adc_v1_0_M00_AXIS_inst (
         // user ports
-        .CH_A_DATA_IN({2'b0,AXI_CH_1_DATA}),
-        .CH_B_DATA_IN({2'b0,AXI_CH_2_DATA}),
-        .CH_C_DATA_IN({2'b0,AXI_CH_3_DATA}),
-        .CH_D_DATA_IN({2'b0,AXI_CH_4_DATA}),
-        .DATA_IN_VALID(AXI_DATA_VALID),
+        .CH_A_DATA_IN({2'b0,ADC_CH_1_DATA}),
+        .CH_B_DATA_IN({2'b0,ADC_CH_2_DATA}),
+        .CH_C_DATA_IN({2'b0,ADC_CH_3_DATA}),
+        .CH_D_DATA_IN({2'b0,ADC_CH_4_DATA}),
+        .FRAME_CLK(FRAME_CLK),
+        .SAMPLES_PER_PACKET(SAMPLES_PER_PACKET),
 
         // axi bus ports
         .M_AXIS_ACLK(m00_axis_aclk),
@@ -224,29 +225,10 @@
         .CH_X_DATA(ADC_CH_4_DATA)
     );
 
-    // Clock Domain Crossers
-    clock_domain_crosser clock_domain_crosser_inst (
-        .RESET_N(m00_axis_aresetn),
-        .DATA_CLK(DATA_CLK),
-        .FRAME_CLK(FRAME_CLK),
-        .AXI_CLK(m00_axis_aclk),
-        .AXI_DATA_VALID(AXI_DATA_VALID),
-
-        .ADC_CH_1_DATA(ADC_CH_1_DATA),
-        .ADC_CH_2_DATA(ADC_CH_2_DATA),
-        .ADC_CH_3_DATA(ADC_CH_3_DATA),
-        .ADC_CH_4_DATA(ADC_CH_4_DATA),
-
-        .AXI_CH_1_DATA(AXI_CH_1_DATA),
-        .AXI_CH_2_DATA(AXI_CH_2_DATA),
-        .AXI_CH_3_DATA(AXI_CH_3_DATA),
-        .AXI_CH_4_DATA(AXI_CH_4_DATA)
-    );
-
     // Encode CLK Generator
     adc_encode_clk_gen adc_encode_clk_gen_inst (
-        .AXI_CLK(m00_axis_aclk),
-        .RESET_N(m00_axis_aresetn),
+        .AXI_CLK(s00_axi_aclk),
+        .RESET_N(s00_axi_aresetn),
         .CLOCK_DIV(ENCODE_CLK_DIV),
         .ENCODE_CLK(ENCODE_CLK)
     );
