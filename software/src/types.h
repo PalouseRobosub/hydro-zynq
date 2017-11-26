@@ -40,6 +40,12 @@ typedef struct sample
     analog_sample_t sample[4];
 } sample_t;
 
+typedef struct correlation_t
+{
+    int32_t left_shift;
+    int32_t result[3];
+} correlation_t;
+
 /**
  * Defines the correlation result type.
  */

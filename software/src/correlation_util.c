@@ -5,18 +5,33 @@
 #include "system_params.h"
 #include "time_util.h"
 
+#define SPEED_SOUND_WATER_METERS_PER_SECOND 1498
+
+#define HYDROPHONE_SPACING_METERS 0.02
+
+#define MAX_TIME_BETWEEN_PHONES (HYDROPHONE_SPACING_METERS / SPEED_SOUND_WATER_METERS_PER_SECOND)
+
+#define MAX_SAMPLES_BETWEEN_PHONES (MAX_TIME_BETWEEN_PHONES * SAMPLING_FREQUENCY)
+
+int32_t correlation[MAX_SAMPLES * 2][3];
 result_t cross_correlate(const sample_t *data,
                          const size_t len,
                          correlation_result_t *result)
 {
     AbortIfNot(data, fail);
     AbortIfNot(result, fail);
+    AbortIfNot(len, fail);
+
+    int32_t max_shift = MAX_SAMPLES_BETWEEN_PHONES;
+    if (max_shift > len - 1)
+    {
+        max_shift = len - 1;
+    }
 
     /*
      * Correlate the reference signal with channels A, B, and C.
      */
-    int32_t correlation[MAX_SAMPLES * 2][3];
-    for (int32_t lshift = (len - 1); lshift < (-1 * len); lshift--)
+    for (int32_t lshift = max_shift; lshift > -1 * max_shift; lshift--)
     {
         /*
          * Grab the start and end indices of the unshifted signal for the
@@ -61,13 +76,14 @@ result_t cross_correlate(const sample_t *data,
      * Loop through the results and find the maximum location of the correlation.
      */
     int32_t max_correlation_indices[3] = {0};
-    for (size_t i = 1; i < (len - 1) * 2; ++i)
+    for (int32_t i = max_shift; i > -1 * max_shift; --i)
     {
+        int j = (len - 1) - i;
         for (size_t k = 0; k < 3; ++k)
         {
-            if (correlation[i] > correlation[max_correlation_indices[k]])
+            if (correlation[j][k] > correlation[max_correlation_indices[k]][k])
             {
-                max_correlation_indices[k] = i;
+                max_correlation_indices[k] = j;
             }
         }
     }
@@ -87,7 +103,7 @@ result_t cross_correlate(const sample_t *data,
 
 size_t ticks_to_samples(tick_t ticks)
 {
-    return (size_t)(ticks / ((float)CPU_CLOCK_HZ / SAMPLING_FREQUENCY));
+    return (size_t)(ticks * SAMPLING_FREQUENCY / (float)CPU_CLOCK_HZ);
 }
 
 result_t truncate(const sample_t *data,
@@ -107,41 +123,41 @@ result_t truncate(const sample_t *data,
     {
         for (size_t k = 0; k < 4; ++k)
         {
-            if (!found && data[i].sample[k] > ADC_THRESHOLD)
+            if (!*found && data[i].sample[k] > ADC_THRESHOLD)
             {
+                uprintf("Found %d on channel %d index %d\n", data[i].sample[k], k, i);
                 ping_start_index = i;
                 *found = true;
                 break;
             }
         }
 
-        if (found)
+        if (*found)
         {
             break;
         }
     }
 
-    AbortIfNot(found, fail);
-
-    size_t indices_before_start = ticks_to_samples(ms_to_ticks(1));
-    size_t ping_start_truncated = ping_start_index;
-    if (indices_before_start > ping_start_truncated)
+    if (!*found)
     {
-        ping_start_truncated = 0;
+        return success;
+    }
+
+    const size_t indices_before_start = ticks_to_samples(ms_to_ticks(1));
+    if (indices_before_start > ping_start_index)
+    {
+        *start_index = 0;
     }
     else
     {
-        ping_start_truncated -= indices_before_start;
+        *start_index = ping_start_index - indices_before_start;
     }
 
-    size_t indices_after_end = ping_start_index + ticks_to_samples(ticks_to_ms(5));
-    if (indices_after_end >= len)
+    *end_index = ping_start_index + ticks_to_samples(ms_to_ticks(4));
+    if (*end_index >= len)
     {
-        indices_after_end = len - 1;
+        *end_index = len - 1;
     }
-
-    *start_index = ping_start_truncated;
-    *end_index = indices_after_end;
 
     return success;
 }

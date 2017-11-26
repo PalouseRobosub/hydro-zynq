@@ -111,8 +111,8 @@ result_t go()
 
     set_interrupts(true);
 
-    //bool sync = false;
-    //tick_t previous_ping_tick = get_system_time();
+    bool sync = false;
+    tick_t previous_ping_tick = get_system_time();
     while (1)
     {
         /*
@@ -120,48 +120,68 @@ result_t go()
          */
         dispatch_network_stack();
 
-        ///*
-        // * Find sync for the start of a ping if we are not debugging.
-        // */
-        //if (!sync && !debug_stream)
-        //{
-        //    while (!previous_ping_tick)
-        //    {
-        //        AbortIfNot(acquire_sync(&dma,
-        //                                samples,
-        //                                MAX_SAMPLES,
-        //                                &previous_ping_tick), fail);
-        //    }
-        //}
+        /*
+         * Find sync for the start of a ping if we are not debugging.
+         */
+        if (!sync && !debug_stream)
+        {
+            bool found = false;
+            while (!found)
+            {
+                AbortIfNot(acquire_sync(&dma,
+                                        samples,
+                                        MAX_SAMPLES,
+                                        &previous_ping_tick,
+                                        &found), fail);
+            }
 
-        ///*
-        // * Fast forward the previous ping tick until the most likely time
-        // * of the most recent ping.
-        // */
-        //while (get_system_time() > (previous_ping_tick + ms_to_ticks(1900)))
-        //{
-        //    previous_ping_tick += ms_to_ticks(2000);
-        //}
+            uprintf("Synced: %f s\n", ticks_to_seconds(previous_ping_tick));
 
-        ///*
-        // * Wait until the ping is about to come (50ms before).
-        // */
-        //busywait(previous_ping_tick - get_system_time() - ms_to_ticks(50));
+            sync = true;
+        }
 
-        ///*
-        // * Record the ping. When debugging, over 2 seconds of data should be
-        // * recovered.
-        // */
-        //uint32_t sample_duration_ms = (debug_stream)? 2100 : 200;
+        /*
+         * Fast forward the previous ping tick until the most likely time
+         * of the most recent ping.
+         */
+        if (!debug_stream)
+        {
+            tick_t next_ping_tick = previous_ping_tick;
+            while (get_system_time() > (next_ping_tick - ms_to_ticks(50)))
+            {
+                next_ping_tick += ms_to_ticks(2000);
+            }
 
-        uint32_t sample_duration_ms = 100;
+            /*
+             * Wait until the ping is about to come (100ms before).
+             */
+            //uprintf("Previous ping at %f s\n", ticks_to_seconds(previous_ping_tick));
+            //uprintf("[%f] Waiting to sample at %f s\n", ticks_to_seconds(get_system_time()), ticks_to_seconds(next_ping_tick));
+            while (get_system_time() < (next_ping_tick - ms_to_ticks(50)));
+            //uprintf("Woke up to sample at %f s\n", ticks_to_seconds(get_system_time()));
+        }
+
+        /*
+         * Record the ping. When debugging, over 2 seconds of data should be
+         * recovered.
+         */
+        uint32_t sample_duration_ms = (debug_stream)? 2100 : 100;
+
         uint32_t samples_to_take = sample_duration_ms / 1000.0 * SAMPLING_FREQUENCY;
+        //uprintf("Taking %d samples\n", samples_to_take);
         if (samples_to_take % SAMPLES_PER_PACKET)
         {
             samples_to_take += (SAMPLES_PER_PACKET - (samples_to_take % SAMPLES_PER_PACKET));
         }
 
-        const size_t num_samples = samples_to_take;
+        size_t num_samples = samples_to_take;
+        if (num_samples > MAX_SAMPLES)
+        {
+            num_samples = MAX_SAMPLES - (MAX_SAMPLES % SAMPLES_PER_PACKET);
+        }
+
+        tick_t sample_start_tick = get_system_time();
+        uprintf("Sampling at: %f s\n", ticks_to_seconds(sample_start_tick));
         AbortIfNot(record(&dma, samples, samples_to_take), fail);
 
         ///*
@@ -170,41 +190,47 @@ result_t go()
         //filter_coefficients_t coefficients;
         //AbortIfNot(filter(samples, num_samples, &coefficients), fail);
 
-        ///*
-        // * Truncate the data around the ping.
-        // */
-        //size_t start_index, end_index;
-        //bool located;
-        //AbortIfNot(truncate(samples, num_samples, &start_index, &end_index, &located), fail);
-        //if (!located)
-        //{
-        //    uprintf("Failed to find the ping.\n");
-        //}
+        /*
+         * Truncate the data around the ping.
+         */
+        size_t start_index, end_index;
+        bool located = false;
+        AbortIfNot(truncate(samples, num_samples, &start_index, &end_index, &located), fail);
+        if (!located)
+        {
+            uprintf("Failed to find the ping.\n");
+            sync = false;
+            continue;
+        }
+        else
+        {
+            tick_t offset = start_index * (CPU_CLOCK_HZ / SAMPLING_FREQUENCY);
+            previous_ping_tick = sample_start_tick + offset;
+            uprintf("Found ping: %f s\n", ticks_to_seconds(previous_ping_tick));
 
-        ///*
-        // * Locate the ping samples.
-        // */
-        //size_t start_index = 0;
-        //size_t end_index = num_samples;
-        //const sample_t *ping_start = &samples[start_index];
-        //const size_t ping_length = end_index - start_index;
+            ///*
+            // * Locate the ping samples.
+            // */
+            //AbortIfNot(end_index > start_index, fail);
+            //const sample_t *ping_start = &samples[start_index];
+            //const size_t ping_length = end_index - start_index;
 
-        ///*
-        // * Perform the correlation on the data.
-        // */
-        //correlation_result_t result;
-        //tick_t start_time = get_system_time();
-        //uprintf("Beginning correlation...\n");
-        //AbortIfNot(cross_correlate(ping_start, ping_length, &result), fail);
+            ///*
+            // * Perform the correlation on the data.
+            // */
+            //correlation_result_t result;
+            //tick_t start_time = get_system_time();
+            //AbortIfNot(cross_correlate(ping_start, ping_length, &result), fail);
 
-        //tick_t duration_time = get_system_time() - start_time;
-        //uprintf("Correlation took %d ms\n", ticks_to_ms(duration_time));
-        //uprintf("Correlation results: %d %d %d\n", result.channel_delay_ns[0], result.channel_delay_ns[1], result.channel_delay_ns[2]);
+            //tick_t duration_time = get_system_time() - start_time;
+            //uprintf("Correlation took %d ms\n", ticks_to_ms(duration_time));
+            //uprintf("Correlation results: %d %d %d\n", result.channel_delay_ns[0], result.channel_delay_ns[1], result.channel_delay_ns[2]);
 
-        ///*
-        // * Relay the result.
-        // */
-        //AbortIfNot(send_result(&result_socket, &result), fail);
+            ///*
+            // * Relay the result.
+            // */
+            //AbortIfNot(send_result(&result_socket, &result), fail);
+        }
 
         /*
          * If debug streams are enabled, transmit the data used for the
@@ -212,12 +238,11 @@ result_t go()
          */
         //if (debug_stream)
         {
-            uprintf("Transmitting...\n");
-            tick_t start_transmit = get_system_time();
+            //tick_t start_transmit = get_system_time();
             AbortIfNot(send_data(&data_stream_socket, samples, num_samples), fail);
-            tick_t transmit_duration = get_system_time() - start_transmit;
+            //tick_t transmit_duration = get_system_time() - start_transmit;
 
-            uprintf("Transmission took %f seconds.\n", ticks_to_seconds(transmit_duration));
+            //uprintf("Transmission took %f seconds.\n", ticks_to_seconds(transmit_duration));
             //debug_stream = false;
         }
     }
