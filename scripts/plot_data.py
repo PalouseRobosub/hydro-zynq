@@ -21,6 +21,7 @@ def plot(data, channels=[0,1,2,3]):
 
     plt.legend(labels)
     plt.xlabel("Sample Number")
+    plt.grid(True)
     plt.show()
 
 if __name__ == "__main__":

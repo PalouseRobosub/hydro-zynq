@@ -20,12 +20,12 @@ class Packet:
         [self.number] = struct.unpack('<i', data[:4])
         self.samples = []
         self.data = data
-        self._parse()
 
 
     def _parse(self):
         for i in range(4, len(self.data), 8):
             self.samples.append(Sample(self.data[i:i + 8]))
+
 
 def to_numpy(packets):
     for packet in packets:
@@ -43,6 +43,7 @@ def to_numpy(packets):
                 sub_list.append(sample.channel[x])
             array_list.append(sub_list)
     return numpy.array(array_list)
+
 
 def write_to_csv(packets, filename):
     low_index = 0
@@ -65,7 +66,7 @@ def write_to_csv(packets, filename):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('output', type=str, help='Specifies output file name')
+    parser.add_argument('--output', type=str, help='Specifies output file name')
     parser.add_argument('--hostname', type=str, default='192.168.0.250', help='Specifies the hostname to bind to')
     args = parser.parse_args()
 
@@ -82,12 +83,16 @@ if __name__ == '__main__':
         packet = Packet(data);
         if packet.number is 0:
             if started:
-                print('Got whole data from prev: {} long'.format(len(whole_data)))
-                write_to_csv(whole_data, args.output)
-                print('Written')
+                for packet in whole_data:
+                    packet._parse()
+                print('Got data: {} long'.format(len(whole_data)))
                 np_array = to_numpy(whole_data)
-                plot_data.plot(np_array)
+                plot_data.plot(np_array, [0])
+                if args.output is not None:
+                    write_to_csv(whole_data, args.output)
+                    print('Written')
                 sys.exit(0)
+
             started = True
 
         if started:
