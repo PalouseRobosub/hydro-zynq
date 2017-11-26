@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-result_t cross_correlate(const sample_t *data, const size_t len, correlation_result_t *result);
+result_t cross_correlate(const sample_t *data, const size_t len, correlation_t *correlations, const size_t correlation_len, size_t *num_correlations, correlation_result_t *result);
 
 result_t truncate(const sample_t *data, const size_t len, size_t *start_index, size_t *end_index, bool *found);
 

@@ -79,9 +79,9 @@ result_t send_data(udp_socket_t *socket, sample_t *data, const size_t count)
     /*
      * If there is still data to send, send it in a smaller packet.
      */
-    if (i * samples_per_packet < count)
+    if (i < count)
     {
-        size_t remainder = count - i * samples_per_packet;
+        size_t remainder = count - i;
 
         int packet_number = i / samples_per_packet;
         memcpy(buf, &packet_number, 4);
@@ -89,8 +89,6 @@ result_t send_data(udp_socket_t *socket, sample_t *data, const size_t count)
         {
             memcpy(&buf[4 + j * 8], data[i + j].sample, 8);
         }
-
-        buf[8 * remainder + 4] = 0;
 
         /*
          * Send the data.
@@ -100,4 +98,60 @@ result_t send_data(udp_socket_t *socket, sample_t *data, const size_t count)
     }
 
     return success;
+}
+
+result_t send_xcorr(udp_socket_t *socket, correlation_t *data, const size_t count)
+{
+    AbortIfNot(socket, fail);
+    AbortIfNot(data, fail);
+
+    #define correlations_per_packet 50
+    char buf[16 * correlations_per_packet + 4];
+
+    int i;
+    for (i = 0; (i + correlations_per_packet) < count; i += correlations_per_packet)
+    {
+        /*
+         * First, packet number in.
+         */
+        int packet_number = i / correlations_per_packet;
+        memcpy(buf, &packet_number, 4);
+        for (int j = 0; j < correlations_per_packet; ++j)
+        {
+            memcpy(&buf[4 + j * 16], &data[i + j].left_shift, 4);
+            memcpy(&buf[4 + j * 16 + 4], data[i + j].result, 12);
+        }
+
+        /*
+         * Send the data.
+         */
+        AbortIfNot(send_udp(socket, buf, 16 * correlations_per_packet + 4), fail);
+        dispatch_network_stack();
+        busywait(micros_to_ticks(50));
+    }
+
+    /*
+     * If there is still data to send, send it in a smaller packet.
+     */
+    if (i < count)
+    {
+        size_t remainder = count - i;
+
+        int packet_number = i / correlations_per_packet;
+        memcpy(buf, &packet_number, 4);
+        for (int j = 0; j < remainder; ++j)
+        {
+            memcpy(&buf[4 + j * 16], &data[i + j].left_shift, 4);
+            memcpy(&buf[4 + j * 16 + 4], data[i + j].result, 12);
+        }
+
+        /*
+         * Send the data.
+         */
+        AbortIfNot(send_udp(socket, buf, 16 * remainder + 4), fail);
+        dispatch_network_stack();
+    }
+
+    return success;
+
 }

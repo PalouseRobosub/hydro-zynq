@@ -13,15 +13,20 @@
 
 #define MAX_SAMPLES_BETWEEN_PHONES (MAX_TIME_BETWEEN_PHONES * SAMPLING_FREQUENCY)
 
-int32_t correlation[MAX_SAMPLES * 2][3];
 result_t cross_correlate(const sample_t *data,
                          const size_t len,
+                         correlation_t *correlations,
+                         const size_t correlation_len,
+                         size_t *num_correlations,
                          correlation_result_t *result)
 {
     AbortIfNot(data, fail);
     AbortIfNot(result, fail);
     AbortIfNot(len, fail);
+    AbortIfNot(correlations, fail);
+    AbortIfNot(num_correlations, fail);
 
+    *num_correlations = 0;
     int32_t max_shift = MAX_SAMPLES_BETWEEN_PHONES;
     if (max_shift > len - 1)
     {
@@ -37,6 +42,10 @@ result_t cross_correlate(const sample_t *data,
          * Grab the start and end indices of the unshifted signal for the
          * correlation.
          */
+        (*num_correlations)++;
+        size_t c_index = max_shift - lshift;
+        correlations[c_index].left_shift = lshift;
+
         size_t start_index, end_index;
         if (lshift >= 0)
         {
@@ -52,23 +61,33 @@ result_t cross_correlate(const sample_t *data,
         /*
          * Set the initial correlation values to zero.
          */
-        size_t correlation_index = (len - 1) - lshift;
         for (size_t k = 0; k< 4; ++ k)
         {
-            correlation[correlation_index][k] = 0;
+            correlations[c_index].result[k] = 0;
         }
 
         /*
          * Perform the actual correlation with the given channel sample
          * left-shift.
          */
+        double correlation[3] = {0, 0, 0};
         for (size_t i = start_index; i < end_index; ++i)
         {
             for (size_t k = 0; k < 3; ++k)
             {
-                correlation[correlation_index][k] +=
-                    data[i].sample[0] * data[i + lshift].sample[k + 1];
+                correlation[k] += data[i].sample[0] * data[i + lshift].sample[k + 1];
             }
+        }
+
+        /*
+         * Scale the analog raw data points to voltage readings to keep them in
+         * range of a 32-bit number. Note that since we multiplied two raw
+         * readings, we need to divide by two raw readings - hence the
+         * multiplication.
+         */
+        for (size_t k = 0; k < 3; ++k)
+        {
+            correlations[c_index].result[k] = correlation[k] / ((2 << 13) * (2 << 13));
         }
     }
 
@@ -78,10 +97,10 @@ result_t cross_correlate(const sample_t *data,
     int32_t max_correlation_indices[3] = {0};
     for (int32_t i = max_shift; i > -1 * max_shift; --i)
     {
-        int j = (len - 1) - i;
+        int j = max_shift - i;
         for (size_t k = 0; k < 3; ++k)
         {
-            if (correlation[j][k] > correlation[max_correlation_indices[k]][k])
+            if (correlations[j].result[k] > correlations[max_correlation_indices[k]].result[k])
             {
                 max_correlation_indices[k] = j;
             }
@@ -91,11 +110,10 @@ result_t cross_correlate(const sample_t *data,
     /*
      * Convert the max correlation index into a time measurement.
      */
-    double sample_period_ns = 1000000000.0 / SAMPLING_FREQUENCY;
     for (size_t i = 0; i < 3; ++i)
     {
         int32_t num_samples_right_shifted = (len - 1) - max_correlation_indices[i];
-        result->channel_delay_ns[i] = sample_period_ns * num_samples_right_shifted;
+        result->channel_delay_ns[i] = num_samples_right_shifted * 1000000000.0 / SAMPLING_FREQUENCY;
     }
 
     return success;

@@ -40,6 +40,11 @@ adc_driver_t adc;
  */
 sample_t samples[MAX_SAMPLES];
 
+/**
+ * The array of correlation results for the cross correlation.
+ */
+correlation_t correlations[MAX_SAMPLES * 2];
+
 bool debug_stream = false;
 
 void receive_command(void *arg, struct udp_pcb *upcb, struct pbuf *p, struct ip_addr *addr, uint16_t port)
@@ -92,7 +97,7 @@ result_t go()
     /*
      * Bind the command port, data stream port, and the result output port.
      */
-    udp_socket_t command_socket, data_stream_socket, result_socket;
+    udp_socket_t command_socket, data_stream_socket, result_socket, xcorr_stream_socket;
 
     struct ip_addr dest_ip;
     IP4_ADDR(&dest_ip, 192, 168, 0, 250);
@@ -102,6 +107,9 @@ result_t go()
 
     AbortIfNot(init_udp(&data_stream_socket), fail);
     AbortIfNot(connect_udp(&data_stream_socket, &dest_ip, DATA_STREAM_PORT), fail);
+
+    AbortIfNot(init_udp(&xcorr_stream_socket), fail);
+    AbortIfNot(connect_udp(&xcorr_stream_socket, &dest_ip, XCORR_STREAM_PORT), fail);
 
     AbortIfNot(init_udp(&result_socket), fail);
     AbortIfNot(connect_udp(&result_socket, &dest_ip, RESULT_PORT), fail);
@@ -208,28 +216,35 @@ result_t go()
             previous_ping_tick = sample_start_tick + offset;
             uprintf("Found ping: %f s\n", ticks_to_seconds(previous_ping_tick));
 
-            ///*
-            // * Locate the ping samples.
-            // */
-            //AbortIfNot(end_index > start_index, fail);
-            //const sample_t *ping_start = &samples[start_index];
-            //const size_t ping_length = end_index - start_index;
+            /*
+             * Locate the ping samples.
+             */
+            AbortIfNot(end_index > start_index, fail);
+            const sample_t *ping_start = &samples[start_index];
+            const size_t ping_length = end_index - start_index;
 
-            ///*
-            // * Perform the correlation on the data.
-            // */
-            //correlation_result_t result;
-            //tick_t start_time = get_system_time();
-            //AbortIfNot(cross_correlate(ping_start, ping_length, &result), fail);
+            /*
+             * Perform the correlation on the data.
+             */
+            correlation_result_t result;
+            size_t num_correlations;
 
-            //tick_t duration_time = get_system_time() - start_time;
-            //uprintf("Correlation took %d ms\n", ticks_to_ms(duration_time));
-            //uprintf("Correlation results: %d %d %d\n", result.channel_delay_ns[0], result.channel_delay_ns[1], result.channel_delay_ns[2]);
+            tick_t start_time = get_system_time();
+            AbortIfNot(cross_correlate(ping_start, ping_length, correlations, MAX_SAMPLES * 2, &num_correlations, &result), fail);
+
+            tick_t duration_time = get_system_time() - start_time;
+            uprintf("Correlation took %d ms\n", ticks_to_ms(duration_time));
+            uprintf("Correlation results: %d %d %d\n", result.channel_delay_ns[0], result.channel_delay_ns[1], result.channel_delay_ns[2]);
 
             ///*
             // * Relay the result.
             // */
             //AbortIfNot(send_result(&result_socket, &result), fail);
+
+            //if (debug_stream)
+            {
+                AbortIfNot(send_xcorr(&xcorr_stream_socket, correlations, num_correlations), fail);
+            }
         }
 
         /*
