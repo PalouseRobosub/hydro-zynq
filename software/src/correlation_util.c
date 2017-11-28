@@ -5,14 +5,6 @@
 #include "system_params.h"
 #include "time_util.h"
 
-#define SPEED_SOUND_WATER_METERS_PER_SECOND 1498
-
-#define HYDROPHONE_SPACING_METERS 0.02
-
-#define MAX_TIME_BETWEEN_PHONES (HYDROPHONE_SPACING_METERS / SPEED_SOUND_WATER_METERS_PER_SECOND)
-
-#define MAX_SAMPLES_BETWEEN_PHONES (MAX_TIME_BETWEEN_PHONES * SAMPLING_FREQUENCY)
-
 result_t cross_correlate(const sample_t *data,
                          const size_t len,
                          correlation_t *correlations,
@@ -112,9 +104,11 @@ result_t cross_correlate(const sample_t *data,
      */
     for (size_t i = 0; i < 3; ++i)
     {
-        int32_t num_samples_right_shifted = (len - 1) - max_correlation_indices[i];
+        int32_t num_samples_right_shifted = -1 * correlations[max_correlation_indices[i]].left_shift;
+        uprintf("%d %d - ", i, num_samples_right_shifted);
         result->channel_delay_ns[i] = num_samples_right_shifted * 1000000000.0 / SAMPLING_FREQUENCY;
     }
+    uprintf("\n");
 
     return success;
 }
@@ -161,7 +155,7 @@ result_t truncate(const sample_t *data,
         return success;
     }
 
-    const size_t indices_before_start = ticks_to_samples(ms_to_ticks(1));
+    const size_t indices_before_start = ticks_to_samples(micros_to_ticks(200));
     if (indices_before_start > ping_start_index)
     {
         *start_index = 0;
@@ -171,7 +165,7 @@ result_t truncate(const sample_t *data,
         *start_index = ping_start_index - indices_before_start;
     }
 
-    *end_index = ping_start_index + ticks_to_samples(ms_to_ticks(4));
+    *end_index = ping_start_index + ticks_to_samples(micros_to_ticks(2500));
     if (*end_index >= len)
     {
         *end_index = len - 1;

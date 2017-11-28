@@ -38,7 +38,7 @@ def to_numpy(packets):
         for sample in packet.samples:
             sample_number = sample_index + packet.number * samples_per_packet
             sample_index += 1
-            sub_list = [sample_number]
+            sub_list = [sample_number / 5000000.0]
             for x in xrange(4):
                 sub_list.append(sample.channel[x])
             array_list.append(sub_list)
@@ -87,7 +87,7 @@ if __name__ == '__main__':
                     packet._parse()
                 print('Got data: {} long'.format(len(whole_data)))
                 np_array = to_numpy(whole_data)
-                plot_data.plot(np_array, [0])
+                plot_data.plot(np_array, [0, 1])
                 if args.output is not None:
                     write_to_csv(whole_data, args.output)
                     print('Written')

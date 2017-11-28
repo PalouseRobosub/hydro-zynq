@@ -27,7 +27,7 @@ def to_numpy(packets):
     array_list = []
     for packet in packets:
         for sample in packet.samples:
-            sub_list = [sample.lshift * -1]
+            sub_list = [sample.lshift / 5000000.0]
             for x in xrange(3):
                 sub_list.append(sample.channel[x])
             array_list.append(sub_list)
@@ -42,7 +42,7 @@ def write_to_csv(packets, filename):
         f.write('Left Shift, C1, C2, C3\n')
         for packet in packets:
             for sample in packet.samples:
-                f.write('{}, {}, {}, {}\n'.format(sample.lshift, sample.channel[0], sample.channel[1], sample.channel[2], sample.channel[3]))
+                f.write('{}, {}, {}, {}\n'.format(sample.lshift, sample.channel[0], sample.channel[1], sample.channel[2]))
 
 
 if __name__ == '__main__':
@@ -68,7 +68,7 @@ if __name__ == '__main__':
                     packet._parse()
                 print('Got data: {} long'.format(len(whole_data)))
                 np_array = to_numpy(whole_data)
-                plot_data.plot(np_array, [0, 1])
+                plot_data.plot(np_array, [0])
                 if args.output is not None:
                     write_to_csv(whole_data, args.output)
                     print('Written')

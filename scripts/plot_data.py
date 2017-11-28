@@ -20,7 +20,7 @@ def plot(data, channels=[0,1,2,3]):
         labels.append("Ch{}".format(channel))
 
     plt.legend(labels)
-    plt.xlabel("Sample Number")
+    plt.xlabel('Time (s)')
     plt.grid(True)
     plt.show()
 

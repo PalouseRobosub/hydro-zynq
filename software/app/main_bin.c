@@ -5,21 +5,21 @@
  * @date 10/17/2017
  */
 
-#include "types.h"
 #include "abort.h"
-#include "system_params.h"
-#include "system.h"
-#include "dma.h"
 #include "adc.h"
-#include "spi.h"
-#include "time_util.h"
-#include "lwip/udp.h"
-#include "lwip/ip.h"
-#include "network_stack.h"
-#include "udp.h"
-#include "sample_util.h"
 #include "correlation_util.h"
+#include "dma.h"
+#include "lwip/ip.h"
+#include "lwip/udp.h"
+#include "network_stack.h"
+#include "sample_util.h"
+#include "spi.h"
+#include "system.h"
+#include "system_params.h"
+#include "time_util.h"
 #include "transmission_util.h"
+#include "types.h"
+#include "udp.h"
 
 #include "adc_dma_addresses.h"
 
@@ -43,7 +43,7 @@ sample_t samples[MAX_SAMPLES];
 /**
  * The array of correlation results for the cross correlation.
  */
-correlation_t correlations[MAX_SAMPLES * 2];
+correlation_t correlations[50000];
 
 bool debug_stream = false;
 
@@ -220,8 +220,8 @@ result_t go()
              * Locate the ping samples.
              */
             AbortIfNot(end_index > start_index, fail);
-            const sample_t *ping_start = &samples[start_index];
-            const size_t ping_length = end_index - start_index;
+            sample_t *ping_start = &samples[start_index];
+            size_t ping_length = end_index - start_index;
 
             /*
              * Perform the correlation on the data.
@@ -244,6 +244,9 @@ result_t go()
             //if (debug_stream)
             {
                 AbortIfNot(send_xcorr(&xcorr_stream_socket, correlations, num_correlations), fail);
+
+                //TODO: DEBUG: Only show the correlation parts.
+                AbortIfNot(send_data(&data_stream_socket, ping_start, ping_length), fail);
             }
         }
 
@@ -254,7 +257,8 @@ result_t go()
         //if (debug_stream)
         {
             //tick_t start_transmit = get_system_time();
-            AbortIfNot(send_data(&data_stream_socket, samples, num_samples), fail);
+            //AbortIfNot(send_data(&data_stream_socket, samples, num_samples), fail);
+
             //tick_t transmit_duration = get_system_time() - start_transmit;
 
             //uprintf("Transmission took %f seconds.\n", ticks_to_seconds(transmit_duration));
