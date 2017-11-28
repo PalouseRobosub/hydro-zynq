@@ -1,7 +1,6 @@
 #!/usr/bin/python
 import numpy as np
 import matplotlib.pyplot as plt
-import argparse
 
 
 # Displays a plot of the channel data
@@ -24,7 +23,41 @@ def plot(data, channels=[0,1,2,3]):
     plt.grid(True)
     plt.show()
 
+
+class live_plot:
+    def __init__(self, channels=[0,1,2,3], labels={}):
+        self.channels = channels
+        self.labels = labels
+        for channel in self.channels:
+            if channel not in self.labels:
+                print "warning: no label specified for channel {}".format(channel)
+
+        plt.ion()
+        plt.show()
+
+        fig = plt.figure()
+
+    def plot(self, data):
+        plt.clf()
+
+        labels = []
+        for channel in self.channels:
+            plt.plot(data[:,0], data[:,channel+1])
+            labels.append(self.labels.get(channel, "unknown"))
+
+        plt.legend(labels)
+        plt.xlabel('Time (s)')
+        plt.grid(True)
+
+        plt.draw()
+        # need to call pause for internal matplotlib event loop to process
+        # events
+        plt.pause(0.1)
+
+
 if __name__ == "__main__":
+    import time
+    import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('filename', type=str, help='Input CSV file')
     args = parser.parse_args()
@@ -38,4 +71,10 @@ if __name__ == "__main__":
 
     data = np.loadtxt(args.filename, delimiter=",", skiprows=1)
 
-    plot(data, channels=[1,3])
+    plotter = live_plot([0,1], {0:"Ch0", 1:"Ch1"})
+    while 1:
+        plotter.plot(data)
+        data[1,1] += 1
+        time.sleep(1)
+
+
