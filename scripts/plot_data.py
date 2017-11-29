@@ -11,48 +11,35 @@ import matplotlib.pyplot as plt
 #   [2, Ch0 sample 3, Ch1 sample 3, Ch2 sample 3, Ch3 sample 3],
 #      ...
 #   [n, Ch0 sample n, Ch1 sample n, Ch2 sample n, Ch3 sample n],
-def plot(data, channels=[0,1,2,3]):
+def plot_samples(data, channels=[0,1,2,3], labels={}, split=False):
 
-    labels = []
+    label_list = []
     for channel in channels:
         plt.plot(data[:,0], data[:,channel+1])
-        labels.append("Ch{}".format(channel))
+        label_list.append(labels.get(channel, "unlabeled"))
 
-    plt.legend(labels)
+    plt.legend(label_list)
     plt.xlabel('Time (s)')
     plt.grid(True)
     plt.show()
 
+def plot_correlations(data, channels=[0,1,2,3], labels={}, split=False):
 
-class live_plot:
-    def __init__(self, channels=[0,1,2,3], labels={}):
-        self.channels = channels
-        self.labels = labels
-        for channel in self.channels:
-            if channel not in self.labels:
-                print "warning: no label specified for channel {}".format(channel)
+    label_list = []
+    for channel in channels:
+        #find the max location
+        max_index = np.argmax(data[:,channel+1])
+        max_val = data[max_index,channel+1]
+        max_index = data[max_index,0]
 
-        plt.ion()
-        plt.show()
+        plt.plot(data[:,0], data[:,channel+1])
+        plt.scatter([max_index], [max_val], s=100, marker='x', color='red')
+        label_list.append(labels.get(channel, "unlabeled")+ ": {}, {}".format(max_index, max_val))
 
-        fig = plt.figure()
-
-    def plot(self, data):
-        plt.clf()
-
-        labels = []
-        for channel in self.channels:
-            plt.plot(data[:,0], data[:,channel+1])
-            labels.append(self.labels.get(channel, "unknown"))
-
-        plt.legend(labels)
-        plt.xlabel('Time (s)')
-        plt.grid(True)
-
-        plt.draw()
-        # need to call pause for internal matplotlib event loop to process
-        # events
-        plt.pause(0.1)
+    plt.legend(label_list)
+    plt.xlabel('Time (s)')
+    plt.grid(True)
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -71,10 +58,17 @@ if __name__ == "__main__":
 
     data = np.loadtxt(args.filename, delimiter=",", skiprows=1)
 
-    plotter = live_plot([0,1], {0:"Ch0", 1:"Ch1"})
-    while 1:
-        plotter.plot(data)
-        data[1,1] += 1
-        time.sleep(1)
+    channels = [0,1]
+    labels = {0:"Ch0", 1:"Ch1"}
+
+
+    data = np.zeros((20,3))
+    for x in xrange(-10,10):
+        data[10+x,0] = x
+        data[10+x,1] = -(x+3)**2
+        data[10+x,2] = -(x+5)**2 + 5
+    print data
+
+    plot_correlations(data, [0,1], {0:"ch0-ch1", 1:"ch0-ch2"})
 
 

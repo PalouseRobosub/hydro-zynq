@@ -52,8 +52,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
     sock.bind((args.hostname, 3003))
+
+    channels = [0,1,2]
+    labels = {}
+    for channel in channels:
+        labels[channel] = "Ch0-Ch{}".format(channel+1)
 
     whole_data = []
     started = False
@@ -68,13 +72,20 @@ if __name__ == '__main__':
                     packet._parse()
                 print('Got data: {} long'.format(len(whole_data)))
                 np_array = to_numpy(whole_data)
-                plot_data.plot(np_array, [0])
+                plot_data.plot_correlations(np_array, [0], labels, split=false)
                 if args.output is not None:
                     write_to_csv(whole_data, args.output)
                     print('Written')
-                sys.exit(0)
 
-            started = True
+                # Reset and prepare for next batch of data.
+                sock.close()
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.bind((args.hostname, 3003))
+                whole_data = []
+                started = False
+
+            else:
+                started = True
 
         if started:
             whole_data.append(packet)

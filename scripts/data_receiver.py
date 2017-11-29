@@ -71,7 +71,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
     sock.bind((args.hostname, 3001))
 
     whole_data = []
@@ -82,7 +81,6 @@ if __name__ == '__main__':
     for channel in channels:
         labels[channel] = "Ch{}".format(channel)
 
-    plotter = plot_data.live_plot(channels, labels)
 
     while True:
         data, addr = sock.recvfrom(8 * 3000 + 4)
@@ -94,12 +92,18 @@ if __name__ == '__main__':
                     packet._parse()
                 print('Got data: {} long'.format(len(whole_data)))
                 np_array = to_numpy(whole_data)
-                plotter.plot(np_array)
+                plot_data.plot_samples(np_array, channels, labels, split=False)
                 if args.output is not None:
                     write_to_csv(whole_data, args.output)
                     print('Written')
+
+                # Reset and prepare for next batch of data.
+                sock.close()
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.bind((args.hostname, 3001))
                 whole_data = []
                 started = False
+
             else:
                 started = True
 
