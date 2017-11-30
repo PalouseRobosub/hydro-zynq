@@ -4,6 +4,7 @@ import sys
 import argparse
 import numpy
 import plot_data
+import math
 
 class Sample:
     def __init__(self, data):
@@ -32,6 +33,30 @@ def to_numpy(packets):
                 sub_list.append(sample.channel[x])
             array_list.append(sub_list)
     return numpy.array(array_list)
+
+def calc_bearing(data):
+
+    delay1 = np.argmax(data[:,1])
+    delay2 = np.argmax(data[:,2])
+
+    delay1 = data[delay1,0]
+    delay2 = data[delay2,0]
+
+
+    speed_sound_in_water = 1484.0
+    hydrophone_positions = np.array([0.012, 0.012])
+
+    time_deltas = np.array([delay1, delay2])
+    d = time_deltas * speed_sound_in_water
+
+    bearing = d / hydrophone_positions
+
+    angle = math.atan2(bearing[1], bearing[0])
+
+    print "bearing:"
+    print "i, j: {}, {}".format(bearing[0], bearing[1])
+    print "angle: {}".format(angle)
+
 
 
 def write_to_csv(packets, filename):
@@ -72,6 +97,7 @@ if __name__ == '__main__':
                     packet._parse()
                 print('Got data: {} long'.format(len(whole_data)))
                 np_array = to_numpy(whole_data)
+                calc_bearing(np_array)
                 plot_data.plot_correlations(np_array, [0], labels, split=false)
                 if args.output is not None:
                     write_to_csv(whole_data, args.output)
