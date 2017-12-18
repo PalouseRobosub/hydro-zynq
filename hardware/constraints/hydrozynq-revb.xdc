@@ -7,8 +7,8 @@ set_property IOSTANDARD LVDS_25 [get_ports {in1a_p[0]}]
 set_property IOSTANDARD LVDS_25 [get_ports {in1a_n[0]}]
 set_property DIFF_TERM TRUE [get_ports {in1a_p[0]}]
 set_property DIFF_TERM TRUE [get_ports {in1a_n[0]}]
-set_property PACKAGE_PIN M14 [get_ports {in1a_p[0]}]
-set_property PACKAGE_PIN M15 [get_ports {in1a_n[0]}]
+set_property PACKAGE_PIN N15 [get_ports {in1a_p[0]}]
+set_property PACKAGE_PIN N16 [get_ports {in1a_n[0]}]
 
 
 set_property IOSTANDARD LVDS_25 [get_ports {in1b_p[0]}]

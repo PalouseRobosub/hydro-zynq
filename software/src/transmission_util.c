@@ -73,7 +73,7 @@ result_t send_data(udp_socket_t *socket, sample_t *data, const size_t count)
          */
         AbortIfNot(send_udp(socket, buf, 8 * samples_per_packet + 4), fail);
         dispatch_network_stack();
-        busywait(micros_to_ticks(50));
+        busywait(micros_to_ticks(100));
     }
 
     /*
@@ -127,7 +127,7 @@ result_t send_xcorr(udp_socket_t *socket, correlation_t *data, const size_t coun
          */
         AbortIfNot(send_udp(socket, buf, 16 * correlations_per_packet + 4), fail);
         dispatch_network_stack();
-        busywait(micros_to_ticks(50));
+        busywait(micros_to_ticks(100));
     }
 
     /*

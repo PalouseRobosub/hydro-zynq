@@ -77,7 +77,9 @@ result_t send_udp(udp_socket_t *socket, char *data, size_t len)
 
     pbuf_free(packet_buffer);
 
-    return ((ret == ERR_OK)? success : fail);
+    AbortIfNot(ret == ERR_OK, fail);
+
+    return success;
 }
 
 result_t bind_udp(udp_socket_t *socket, struct ip_addr *ip, uint16_t port, void (*recv)(void *arg, struct udp_pcb * upcb, struct pbuf *p, struct ip_addr *addr, uint16_t port))

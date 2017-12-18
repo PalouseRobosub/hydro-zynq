@@ -29,8 +29,8 @@ result_t init_adc(adc_driver_t *adc, spi_driver_t *spi, uint32_t addr, bool veri
          */
         if (test_pattern)
         {
-            AbortIfNot(write_verify_adc_register(adc, 4, 0x0F, 0xaa), fail);
-            AbortIfNot(write_verify_adc_register(adc, 3, 0x80, 0x8a), fail);
+            AbortIfNot(write_verify_adc_register(adc, 4, 0x0F, 0x0f), fail);
+            AbortIfNot(write_verify_adc_register(adc, 3, 0x80, 0x80), fail);
         }
     }
     else
