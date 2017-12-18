@@ -1,2 +1,5 @@
 *.o
 *.bin
+software/build/*
+software/bit/*
+*.csv

@@ -76,7 +76,7 @@ if __name__ == '__main__':
     whole_data = []
     started = False
 
-    channels = [0,1,2,3]
+    channels = [0,1,2]
     labels = {}
     for channel in channels:
         labels[channel] = "Ch{}".format(channel)

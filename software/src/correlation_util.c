@@ -79,7 +79,7 @@ result_t cross_correlate(const sample_t *data,
          */
         for (size_t k = 0; k < 3; ++k)
         {
-            correlations[c_index].result[k] = correlation[k] / ((2 << 13) * (2 << 13));
+            correlations[c_index].result[k] = correlation[k] / ((2 << 13));
         }
     }
 
@@ -133,7 +133,7 @@ result_t truncate(const sample_t *data,
     *found = false;
     for (size_t i = 0; i < len; ++i)
     {
-        for (size_t k = 0; k < 4; ++k)
+        for (size_t k = 0; k < 1; ++k)
         {
             if (!*found && data[i].sample[k] > ADC_THRESHOLD)
             {

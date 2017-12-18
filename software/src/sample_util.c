@@ -17,6 +17,7 @@ result_t record(dma_engine_t *dma,
     AbortIfNot(sample_count % SAMPLES_PER_PACKET == 0, fail);
 
     size_t total_samples = 0;
+    size_t invalid_packets = 0;
     while (total_samples < sample_count)
     {
         /*
@@ -40,9 +41,11 @@ result_t record(dma_engine_t *dma,
             Xil_DCacheInvalidateRange((INTPTR)&data[total_samples], 2 * 8 * SAMPLES_PER_PACKET);
             total_samples += samples;
         }
+        else
+        {
+            invalid_packets++;
+        }
     }
-
-    AbortIfNot(normalize(data, total_samples), fail);
 
     return success;
 }
@@ -104,6 +107,7 @@ result_t acquire_sync(dma_engine_t *dma,
     }
 
     AbortIfNot(record(dma, data, max_len), fail);
+    AbortIfNot(normalize(data, max_len), fail);
 
     filter_coefficients_t filter_coefficients;
 
@@ -111,7 +115,7 @@ result_t acquire_sync(dma_engine_t *dma,
 
     for (size_t i = 0; i < max_len; ++i)
     {
-        for (size_t k = 0; k < 3; ++k)
+        for (size_t k = 0; k < 1; ++k)
         {
             if (data[i].sample[k] > ADC_THRESHOLD)
             {

@@ -60,6 +60,8 @@ result_t go()
      */
     AbortIfNot(init_system(), fail);
 
+    uprintf("Beginning HydroZynq main application\n");
+
     /*
      * Initialize the network stack with the specified IP address.
      */
@@ -93,6 +95,8 @@ result_t go()
      * Set the sample rate to 5MHz.
      */
     adc.regs->clk_div = 10;
+    uprintf("ADC clock div: %d\n", adc.regs->clk_div);
+    uprintf("ADC samples per packet: %d\n", adc.regs->samples_per_packet);
 
     /*
      * Bind the command port, data stream port, and the result output port.
@@ -163,20 +167,16 @@ result_t go()
             /*
              * Wait until the ping is about to come (100ms before).
              */
-            //uprintf("Previous ping at %f s\n", ticks_to_seconds(previous_ping_tick));
-            //uprintf("[%f] Waiting to sample at %f s\n", ticks_to_seconds(get_system_time()), ticks_to_seconds(next_ping_tick));
             while (get_system_time() < (next_ping_tick - ms_to_ticks(50)));
-            //uprintf("Woke up to sample at %f s\n", ticks_to_seconds(get_system_time()));
         }
 
         /*
          * Record the ping. When debugging, over 2 seconds of data should be
          * recovered.
          */
-        uint32_t sample_duration_ms = (debug_stream)? 2100 : 100;
+        uint32_t sample_duration_ms = (debug_stream)? 2100 : 300;
 
         uint32_t samples_to_take = sample_duration_ms / 1000.0 * SAMPLING_FREQUENCY;
-        //uprintf("Taking %d samples\n", samples_to_take);
         if (samples_to_take % SAMPLES_PER_PACKET)
         {
             samples_to_take += (SAMPLES_PER_PACKET - (samples_to_take % SAMPLES_PER_PACKET));
@@ -191,6 +191,10 @@ result_t go()
         tick_t sample_start_tick = get_system_time();
         uprintf("Sampling at: %f s\n", ticks_to_seconds(sample_start_tick));
         AbortIfNot(record(&dma, samples, samples_to_take), fail);
+        float seconds = ticks_to_seconds(get_system_time() - sample_start_tick);
+        uprintf("Sampling rate: %f Msps (%d in %f s)\n", samples_to_take / 1000000.0 / seconds, samples_to_take, seconds);
+
+        AbortIfNot(normalize(samples, samples_to_take), fail);
 
         ///*
         // * Filter the received signal.

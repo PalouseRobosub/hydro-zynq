@@ -36,17 +36,17 @@ def to_numpy(packets):
 
 def calc_bearing(data):
 
-    delay1 = np.argmax(data[:,1])
-    delay2 = np.argmax(data[:,2])
+    delay1 = numpy.argmax(data[:,1])
+    delay2 = numpy.argmax(data[:,2])
 
     delay1 = data[delay1,0]
     delay2 = data[delay2,0]
 
 
     speed_sound_in_water = 1484.0
-    hydrophone_positions = np.array([0.012, 0.012])
+    hydrophone_positions = numpy.array([0.012, 0.012])
 
-    time_deltas = np.array([delay1, delay2])
+    time_deltas = numpy.array([delay1, delay2])
     d = time_deltas * speed_sound_in_water
 
     bearing = d / hydrophone_positions
@@ -55,7 +55,7 @@ def calc_bearing(data):
 
     print "bearing:"
     print "i, j: {}, {}".format(bearing[0], bearing[1])
-    print "angle: {}".format(angle)
+    print "angle: {}".format(angle * 180 / math.pi)
 
 
 
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((args.hostname, 3003))
 
-    channels = [0,1,2]
+    channels = [0,1]
     labels = {}
     for channel in channels:
         labels[channel] = "Ch0-Ch{}".format(channel+1)
@@ -98,7 +98,7 @@ if __name__ == '__main__':
                 print('Got data: {} long'.format(len(whole_data)))
                 np_array = to_numpy(whole_data)
                 calc_bearing(np_array)
-                plot_data.plot_correlations(np_array, [0], labels, split=false)
+# plot_data.plot_correlations(np_array, channels, labels, split=False)
                 if args.output is not None:
                     write_to_csv(whole_data, args.output)
                     print('Written')

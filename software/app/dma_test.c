@@ -15,8 +15,7 @@ uint32_t samples[DMA_SAMPLE_SIZE * 2 * 2];
 result_t go()
 {
     AbortIfNot(init_system(), fail);
-    Xil_L1DCacheDisable();
-    Xil_L2CacheDisable();
+    Xil_DCacheDisable();
 
     dma_engine_t dma;
     AbortIfNot(initialize_dma(&dma, DMA_BASE_ADDRESS), fail);
@@ -27,13 +26,10 @@ result_t go()
     adc_driver_t adc;
     AbortIfNot(init_adc(&adc, &adc_spi, ADC_BASE_ADDRESS, false, true), fail);
 
-    uint32_t *gpio = (uint32_t *) GPIO_BASE_ADDRESS;
-
     adc.regs->clk_div = 10;
     adc.regs->samples_per_packet = 128;
     uprintf("CLK_DIV: %x\n", adc.regs->clk_div);
     uprintf("Samples /Packet: %x (%d)\n", adc.regs->samples_per_packet, adc.regs->samples_per_packet);
-    uprintf("GPIO: %x (%d)\n", *gpio, *gpio);
 
     uprintf("\nBeginning application.\n");
 
