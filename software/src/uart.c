@@ -9,20 +9,6 @@
 #include "udp.h"
 #include "lwip/ip.h"
 
-udp_socket_t db_port;
-
-result_t dbinit()
-{
-    AbortIfNot(init_udp(&db_port), fail);
-
-    struct ip_addr dest_ip;
-    IP4_ADDR(&dest_ip, 192, 168, 0, 250);
-
-    AbortIfNot(connect_udp(&db_port, &dest_ip, DEBUG_PORT), fail);
-
-    return success;
-}
-
 void uart_putchar(char c)
 {
     /*
@@ -41,11 +27,6 @@ void print_string(char *str)
     while (*str)
     {
         uart_putchar(*str++);
-    }
-
-    if (db_port.pcb)
-    {
-        send_udp(&db_port, str, strlen(str));
     }
 }
 

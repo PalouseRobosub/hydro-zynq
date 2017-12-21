@@ -4,6 +4,7 @@
 #include "spi.h"
 #include "system.h"
 #include "time_util.h"
+#include "db.h"
 
 result_t init_adc(adc_driver_t *adc, spi_driver_t *spi, uint32_t addr, bool verify, bool test_pattern)
 {
@@ -63,7 +64,7 @@ result_t write_verify_adc_register(adc_driver_t *adc,
     AbortIfNot(write_adc_register(adc, reg, data), fail);
     AbortIfNot(read_adc_register(adc, reg, &response), fail);
 
-    uprintf("Register %d: %x\n", reg, (int)response);
+    dbprintf("Register %d: %x\n", reg, (int)response);
     AbortIfNot(response == expected_response, fail);
 
     return success;

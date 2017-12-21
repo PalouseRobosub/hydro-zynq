@@ -3,6 +3,7 @@
 #include "netif/xadapter.h"
 #include "xparameters.h"
 #include "abort.h"
+#include "db.h"
 #include "lwip/init.h"
 
 /**
@@ -52,6 +53,6 @@ void dispatch_network_stack()
     uint32_t packets_rx = xemacif_input(&ethernet_interface);
     if (packets_rx)
     {
-        uprintf("Received %d packets\n", packets_rx);
+        dbprintf("Received %d packets\n", packets_rx);
     }
 }

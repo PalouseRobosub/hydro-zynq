@@ -9,6 +9,4 @@ void uprintf(const char fmt[], ...);
 
 void uart_putchar(char c);
 
-result_t dbinit();
-
 #endif

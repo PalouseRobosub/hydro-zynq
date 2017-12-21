@@ -4,6 +4,7 @@
 #include "abort.h"
 #include "system_params.h"
 #include "time_util.h"
+#include "db.h"
 
 result_t cross_correlate(const sample_t *data,
                          const size_t len,
@@ -105,10 +106,10 @@ result_t cross_correlate(const sample_t *data,
     for (size_t i = 0; i < 3; ++i)
     {
         int32_t num_samples_right_shifted = -1 * correlations[max_correlation_indices[i]].left_shift;
-        uprintf("%d %d - ", i, num_samples_right_shifted);
+        dbprintf("%d %d - ", i, num_samples_right_shifted);
         result->channel_delay_ns[i] = num_samples_right_shifted * 1000000000.0 / SAMPLING_FREQUENCY;
     }
-    uprintf("\n");
+    dbprintf("\n");
 
     return success;
 }
@@ -137,7 +138,7 @@ result_t truncate(const sample_t *data,
         {
             if (!*found && data[i].sample[k] > ADC_THRESHOLD)
             {
-                uprintf("Found %d on channel %d index %d\n", data[i].sample[k], k, i);
+                dbprintf("Found %d on channel %d index %d\n", data[i].sample[k], k, i);
                 ping_start_index = i;
                 *found = true;
                 break;

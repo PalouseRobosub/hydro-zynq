@@ -20,6 +20,7 @@
 #include "transmission_util.h"
 #include "types.h"
 #include "udp.h"
+#include "db.h"
 
 #include "adc_dma_addresses.h"
 
@@ -60,7 +61,7 @@ result_t go()
      */
     AbortIfNot(init_system(), fail);
 
-    uprintf("Beginning HydroZynq main application\n");
+    dbprintf("Beginning HydroZynq main application\n");
 
     /*
      * Initialize the network stack with the specified IP address.
@@ -76,7 +77,7 @@ result_t go()
 
     AbortIfNot(init_network_stack(our_ip, netmask, gateway, mac_address), fail);
     AbortIfNot(dbinit(), fail);
-    uprintf("Network stack initialized\n");
+    dbprintf("Network stack initialized\n");
 
     /*
      * Initialize the DMA engine for reading samples.
@@ -96,19 +97,19 @@ result_t go()
      * Set the sample rate to 5MHz.
      */
     adc.regs->clk_div = 10;
-    uprintf("ADC clock div: %d\n", adc.regs->clk_div);
-    uprintf("ADC samples per packet: %d\n", adc.regs->samples_per_packet);
+    dbprintf("ADC clock div: %d\n", adc.regs->clk_div);
+    dbprintf("ADC samples per packet: %d\n", adc.regs->samples_per_packet);
 
     /*
      * Bind the command port, data stream port, and the result output port.
      */
-    udp_socket_t data_stream_socket, result_socket, xcorr_stream_socket;
+    udp_socket_t command_socket, data_stream_socket, result_socket, xcorr_stream_socket;
 
     struct ip_addr dest_ip;
     IP4_ADDR(&dest_ip, 192, 168, 0, 250);
 
-    //AbortIfNot(init_udp(&command_socket), fail);
-    //AbortIfNot(bind_udp(&command_socket, IP_ADDR_ANY, COMMAND_SOCKET_PORT, receive_command), fail);
+    AbortIfNot(init_udp(&command_socket), fail);
+    AbortIfNot(bind_udp(&command_socket, IP_ADDR_ANY, COMMAND_SOCKET_PORT, receive_command), fail);
 
     AbortIfNot(init_udp(&data_stream_socket), fail);
     AbortIfNot(connect_udp(&data_stream_socket, &dest_ip, DATA_STREAM_PORT), fail);
@@ -119,7 +120,7 @@ result_t go()
     AbortIfNot(init_udp(&result_socket), fail);
     AbortIfNot(connect_udp(&result_socket, &dest_ip, RESULT_PORT), fail);
 
-    uprintf("System initialization complete. Start time: %d ms\n",
+    dbprintf("System initialization complete. Start time: %d ms\n",
             ticks_to_ms(get_system_time()));
 
     set_interrupts(true);
@@ -152,11 +153,11 @@ result_t go()
 
                 if (!found)
                 {
-                    uprintf("Failed to find ping during sync phase: %d - MaxVal: %d\n", ++sync_attempts, max_value);
+                    dbprintf("Failed to find ping during sync phase: %d - MaxVal: %d\n", ++sync_attempts, max_value);
                 }
             }
 
-            uprintf("Synced: %f s\n", ticks_to_seconds(previous_ping_tick));
+            dbprintf("Synced: %f s\n", ticks_to_seconds(previous_ping_tick));
 
             sync = true;
         }
@@ -198,10 +199,10 @@ result_t go()
         }
 
         tick_t sample_start_tick = get_system_time();
-        uprintf("Sampling at: %f s\n", ticks_to_seconds(sample_start_tick));
+        dbprintf("Sampling at: %f s\n", ticks_to_seconds(sample_start_tick));
         AbortIfNot(record(&dma, samples, samples_to_take), fail);
         float seconds = ticks_to_seconds(get_system_time() - sample_start_tick);
-        uprintf("Sampling rate: %f Msps (%d in %f s)\n", samples_to_take / 1000000.0 / seconds, samples_to_take, seconds);
+        dbprintf("Sampling rate: %f Msps (%d in %f s)\n", samples_to_take / 1000000.0 / seconds, samples_to_take, seconds);
 
         AbortIfNot(normalize(samples, samples_to_take), fail);
 
@@ -219,7 +220,7 @@ result_t go()
         AbortIfNot(truncate(samples, num_samples, &start_index, &end_index, &located), fail);
         if (!located)
         {
-            uprintf("Failed to find the ping.\n");
+            dbprintf("Failed to find the ping.\n");
             sync = false;
             if (debug_stream)
             {
@@ -231,7 +232,7 @@ result_t go()
         {
             tick_t offset = start_index * (CPU_CLOCK_HZ / SAMPLING_FREQUENCY);
             previous_ping_tick = sample_start_tick + offset;
-            uprintf("Found ping: %f s\n", ticks_to_seconds(previous_ping_tick));
+            dbprintf("Found ping: %f s\n", ticks_to_seconds(previous_ping_tick));
 
             /*
              * Locate the ping samples.
@@ -250,8 +251,8 @@ result_t go()
             AbortIfNot(cross_correlate(ping_start, ping_length, correlations, MAX_SAMPLES * 2, &num_correlations, &result), fail);
 
             tick_t duration_time = get_system_time() - start_time;
-            uprintf("Correlation took %d ms\n", ticks_to_ms(duration_time));
-            uprintf("Correlation results: %d %d %d\n", result.channel_delay_ns[0], result.channel_delay_ns[1], result.channel_delay_ns[2]);
+            dbprintf("Correlation took %d ms\n", ticks_to_ms(duration_time));
+            dbprintf("Correlation results: %d %d %d\n", result.channel_delay_ns[0], result.channel_delay_ns[1], result.channel_delay_ns[2]);
 
             ///*
             // * Relay the result.
