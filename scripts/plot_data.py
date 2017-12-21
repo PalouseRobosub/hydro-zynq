@@ -34,7 +34,7 @@ def plot_correlations(data, channels=[0,1,2,3], labels={}, split=False):
 
         plt.plot(data[:,0], data[:,channel+1])
         plt.scatter([max_index], [max_val], s=100, marker='x', color='red')
-        label_list.append(labels.get(channel, "unlabeled")+ ": {}, {}".format(max_index, max_val))
+        label_list.append(labels.get(channel, "unlabeled")+ ": {:.2f} us".format(max_index*(10**6)))
 
     plt.legend(label_list)
     plt.xlabel('Time (s)')
