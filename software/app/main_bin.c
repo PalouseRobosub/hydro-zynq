@@ -75,6 +75,7 @@ result_t go()
     };
 
     AbortIfNot(init_network_stack(our_ip, netmask, gateway, mac_address), fail);
+    AbortIfNot(dbinit(), fail);
     uprintf("Network stack initialized\n");
 
     /*
@@ -101,13 +102,13 @@ result_t go()
     /*
      * Bind the command port, data stream port, and the result output port.
      */
-    udp_socket_t command_socket, data_stream_socket, result_socket, xcorr_stream_socket;
+    udp_socket_t data_stream_socket, result_socket, xcorr_stream_socket;
 
     struct ip_addr dest_ip;
     IP4_ADDR(&dest_ip, 192, 168, 0, 250);
 
-    AbortIfNot(init_udp(&command_socket), fail);
-    AbortIfNot(bind_udp(&command_socket, IP_ADDR_ANY, COMMAND_SOCKET_PORT, receive_command), fail);
+    //AbortIfNot(init_udp(&command_socket), fail);
+    //AbortIfNot(bind_udp(&command_socket, IP_ADDR_ANY, COMMAND_SOCKET_PORT, receive_command), fail);
 
     AbortIfNot(init_udp(&data_stream_socket), fail);
     AbortIfNot(connect_udp(&data_stream_socket, &dest_ip, DATA_STREAM_PORT), fail);

@@ -23,6 +23,7 @@
 #define DATA_STREAM_PORT 3001
 #define RESULT_PORT 3002
 #define XCORR_STREAM_PORT 3003
+#define DEBUG_PORT 3004
 
 
 /*
