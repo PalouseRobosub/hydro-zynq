@@ -3,3 +3,4 @@
 software/build/*
 software/bit/*
 *.csv
+*vivado*

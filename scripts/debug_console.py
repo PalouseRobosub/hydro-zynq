@@ -8,8 +8,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind((args.hostname, )) #TODO: add port
+    sock.bind((args.hostname, 3004))
 
     while True:
         data = sock.recv(1024)
-        print data
+        print data,
