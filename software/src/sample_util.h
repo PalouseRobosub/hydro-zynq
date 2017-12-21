@@ -6,7 +6,7 @@
 
 result_t record(dma_engine_t *dma, sample_t *data, const size_t max_len);
 
-result_t acquire_sync(dma_engine_t *dma, sample_t *data, size_t max_len, tick_t *ping_start, bool *found);
+result_t acquire_sync(dma_engine_t *dma, sample_t *data, size_t max_len, tick_t *ping_start, bool *found, analog_sample_t *max_value);
 
 result_t normalize(sample_t *data, const size_t len);
 

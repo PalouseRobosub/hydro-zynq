@@ -165,7 +165,7 @@ result_t truncate(const sample_t *data,
         *start_index = ping_start_index - indices_before_start;
     }
 
-    *end_index = ping_start_index + ticks_to_samples(micros_to_ticks(2500));
+    *end_index = ping_start_index + ticks_to_samples(micros_to_ticks(200));
     if (*end_index >= len)
     {
         *end_index = len - 1;

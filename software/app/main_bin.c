@@ -49,7 +49,7 @@ bool debug_stream = false;
 
 void receive_command(void *arg, struct udp_pcb *upcb, struct pbuf *p, struct ip_addr *addr, uint16_t port)
 {
-    debug_stream = true;
+    debug_stream = !debug_stream;
     pbuf_free(p);
 }
 
@@ -87,7 +87,7 @@ result_t go()
      */
     AbortIfNot(init_spi(&adc_spi, SPI_BASE_ADDRESS), fail);
 
-    bool verify_write = false;
+    bool verify_write = true;
     bool use_test_pattern = false;
     AbortIfNot(init_adc(&adc, &adc_spi, ADC_BASE_ADDRESS, verify_write, use_test_pattern), fail);
 
@@ -138,13 +138,21 @@ result_t go()
         if (!sync && !debug_stream)
         {
             bool found = false;
+            int sync_attempts = 0;
+            analog_sample_t max_value;
             while (!found)
             {
                 AbortIfNot(acquire_sync(&dma,
                                         samples,
                                         MAX_SAMPLES,
                                         &previous_ping_tick,
-                                        &found), fail);
+                                        &found,
+                                        &max_value), fail);
+
+                if (!found)
+                {
+                    uprintf("Failed to find ping during sync phase: %d - MaxVal: %d\n", ++sync_attempts, max_value);
+                }
             }
 
             uprintf("Synced: %f s\n", ticks_to_seconds(previous_ping_tick));
@@ -174,7 +182,7 @@ result_t go()
          * Record the ping. When debugging, over 2 seconds of data should be
          * recovered.
          */
-        uint32_t sample_duration_ms = (debug_stream)? 2100 : 300;
+        uint32_t sample_duration_ms = (debug_stream)? 300 : 300;
 
         uint32_t samples_to_take = sample_duration_ms / 1000.0 * SAMPLING_FREQUENCY;
         if (samples_to_take % SAMPLES_PER_PACKET)
@@ -212,6 +220,10 @@ result_t go()
         {
             uprintf("Failed to find the ping.\n");
             sync = false;
+            if (debug_stream)
+            {
+                AbortIfNot(send_data(&data_stream_socket, samples, num_samples), fail);
+            }
             continue;
         }
         else
@@ -244,29 +256,10 @@ result_t go()
             // * Relay the result.
             // */
             //AbortIfNot(send_result(&result_socket, &result), fail);
+            AbortIfNot(send_xcorr(&xcorr_stream_socket, correlations, num_correlations), fail);
 
-            //if (debug_stream)
-            {
-                AbortIfNot(send_xcorr(&xcorr_stream_socket, correlations, num_correlations), fail);
-
-                //TODO: DEBUG: Only show the correlation parts.
-                AbortIfNot(send_data(&data_stream_socket, ping_start, ping_length), fail);
-            }
-        }
-
-        /*
-         * If debug streams are enabled, transmit the data used for the
-         * correlation.
-         */
-        //if (debug_stream)
-        {
-            //tick_t start_transmit = get_system_time();
-            //AbortIfNot(send_data(&data_stream_socket, samples, num_samples), fail);
-
-            //tick_t transmit_duration = get_system_time() - start_transmit;
-
-            //uprintf("Transmission took %f seconds.\n", ticks_to_seconds(transmit_duration));
-            //debug_stream = false;
+            //TODO: DEBUG: Only show the correlation parts.
+            AbortIfNot(send_data(&data_stream_socket, ping_start, ping_length), fail);
         }
     }
 }

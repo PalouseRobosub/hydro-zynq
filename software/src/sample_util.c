@@ -38,7 +38,7 @@ result_t record(dma_engine_t *dma,
              * buffer we are invalidating, so it should have been written back
              * earlier.
              */
-            Xil_DCacheInvalidateRange((INTPTR)&data[total_samples], 2 * 8 * SAMPLES_PER_PACKET);
+            Xil_DCacheInvalidateRange((INTPTR)&data[total_samples], 8 * samples);
             total_samples += samples;
         }
         else
@@ -93,12 +93,14 @@ result_t acquire_sync(dma_engine_t *dma,
                       sample_t *data,
                       size_t max_len,
                       tick_t *start_time,
-                      bool *found)
+                      bool *found,
+                      analog_sample_t *max_value)
 {
     AbortIfNot(dma, fail);
     AbortIfNot(data, fail);
     AbortIfNot(start_time, fail);
     AbortIfNot(found, fail);
+    AbortIfNot(max_value, fail);
 
     tick_t record_start = get_system_time();
     if (max_len % SAMPLES_PER_PACKET)
@@ -113,10 +115,17 @@ result_t acquire_sync(dma_engine_t *dma,
 
     AbortIfNot(filter(data, max_len, &filter_coefficients), fail);
 
+    *max_value = data[0].sample[0];
+
     for (size_t i = 0; i < max_len; ++i)
     {
         for (size_t k = 0; k < 1; ++k)
         {
+            if (data[i].sample[k] > *max_value)
+            {
+                *max_value = data[i].sample[k];
+            }
+
             if (data[i].sample[k] > ADC_THRESHOLD)
             {
                 *start_time = record_start + i * (CPU_CLOCK_HZ / (float)SAMPLING_FREQUENCY);

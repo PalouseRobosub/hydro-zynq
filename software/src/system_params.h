@@ -4,7 +4,7 @@
 /*
  * System parameters.
  */
-#define ADC_THRESHOLD 2500
+#define ADC_THRESHOLD 1500
 
 #define ARM_CLK_PLL 666667000
 
