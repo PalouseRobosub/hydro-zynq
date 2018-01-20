@@ -5,6 +5,8 @@ import argparse
 import numpy
 import plot_data
 import math
+import rospy
+from robosub_msgs.msg import HydrophoneDeltas
 
 class Sample:
     def __init__(self, data):
@@ -33,6 +35,21 @@ def to_numpy(packets):
                 sub_list.append(sample.channel[x])
             array_list.append(sub_list)
     return numpy.array(array_list)
+
+def pub_deltas(pub, data):
+    delta_msg = HydrophoneDeltas()
+
+    delay1 = numpy.argmax(data[:,1])
+    delay2 = numpy.argmax(data[:,2])
+    delay3 = numpy.argmax(data[:,3])
+
+    delta_msg.header.stamp = rospy.Time.now()
+
+    delta_msg.xDelta = data[delay1,0]
+    delta_msg.yDelta = data[delay2,0]
+    delta_msg.zDelta = data[delay3,0]
+
+    pub.publish(delta_msg)
 
 def calc_bearing(data):
 
@@ -76,6 +93,10 @@ if __name__ == '__main__':
     parser.add_argument('--hostname', type=str, default='192.168.0.250', help='Specifies the hostname to bind to')
     args = parser.parse_args()
 
+    rospy.init_node("hydrozynq_interface")
+    delta_pub = rospy.Publisher('hydrophones/30khz/delta', HydrophoneDeltas,
+            queue_size=1)
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((args.hostname, 3003))
 
@@ -98,6 +119,7 @@ if __name__ == '__main__':
                 print('Got data: {} long'.format(len(whole_data)))
                 np_array = to_numpy(whole_data)
                 calc_bearing(np_array)
+                pub_deltas(pub=delta_pub, data=np_array)
 # plot_data.plot_correlations(np_array, channels, labels, split=False)
                 if args.output is not None:
                     write_to_csv(whole_data, args.output)
