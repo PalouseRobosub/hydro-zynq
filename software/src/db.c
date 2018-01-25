@@ -17,7 +17,7 @@ result_t dbinit()
     AbortIfNot(init_udp(&db_socket), fail);
 
     struct ip_addr dest_ip;
-    IP4_ADDR(&dest_ip, 192, 168, 0, 250);
+    IP4_ADDR(&dest_ip, 192, 168, 0, 2);
 
     AbortIfNot(connect_udp(&db_socket, &dest_ip, DEBUG_PORT), fail);
 

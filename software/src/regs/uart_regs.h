@@ -12,5 +12,4 @@ struct UartRegs
 
 static struct UartRegs *uart_regs = (struct UartRegs *)(0xe0001000);
 
-
 #endif

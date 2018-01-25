@@ -6,7 +6,7 @@ import numpy
 import plot_data
 import math
 import rospy
-from robosub_msgs.msg import HydrophoneDeltas
+from robosub.msg import HydrophoneDeltas
 
 class Sample:
     def __init__(self, data):
@@ -45,9 +45,9 @@ def pub_deltas(pub, data):
 
     delta_msg.header.stamp = rospy.Time.now()
 
-    delta_msg.xDelta = data[delay1,0]
-    delta_msg.yDelta = data[delay2,0]
-    delta_msg.zDelta = data[delay3,0]
+    delta_msg.xDelta = rospy.Duration(data[delay1,0])
+    delta_msg.yDelta = rospy.Duration(data[delay2,0])
+    delta_msg.zDelta = rospy.Duration(data[delay3,0])
 
     pub.publish(delta_msg)
 
@@ -90,7 +90,7 @@ def write_to_csv(packets, filename):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', type=str, help='Specifies output file name')
-    parser.add_argument('--hostname', type=str, default='192.168.0.250', help='Specifies the hostname to bind to')
+    parser.add_argument('--hostname', type=str, default='192.168.0.7', help='Specifies the hostname to bind to')
     args = parser.parse_args()
 
     rospy.init_node("hydrozynq_interface")

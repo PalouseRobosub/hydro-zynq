@@ -1,40 +1,61 @@
 #ifndef SYS_PARAMS_H
 #define SYS_PARAMS_H
 
+#include "types.h"
+
 /*
  * System parameters.
  */
-#define ADC_THRESHOLD 1500
-
 #define ARM_CLK_PLL 666667000
 
 #define CPU_CLOCK_HZ (ARM_CLK_PLL/2)
 
-#define SAMPLING_FREQUENCY 5000000
-
-#define MAX_SAMPLES (SAMPLING_FREQUENCY/1000 * 2200)
-
-#define SAMPLES_PER_PACKET 128
+#define FPGA_CLK 100000000
 
 /*
  * UDP port definitions.
  */
 #define COMMAND_SOCKET_PORT 3000
+
 #define DATA_STREAM_PORT 3001
 #define RESULT_PORT 3002
 #define XCORR_STREAM_PORT 3003
 #define DEBUG_PORT 3004
 
+/**
+ * Defines configurable parameters of the board.
+ */
+typedef struct HydroZynqParameters
+{
+    /**
+     * Specifies the number of analog samples per DMA transfer.
+     */
+    uint32_t samples_per_packet;
 
-/*
+    /**
+     * Specifies the sampling frequency divider.
+     */
+    uint32_t sample_clk_div;
+
+    /**
+     * Specifies the threshold value that denotes a ping.
+     */
+    analog_sample_t ping_threshold;
+
+} HydroZynqParams;
+
+#define INITIAL_ADC_THRESHOLD 500
+
+/**
  * Geometric constraints on the hydrophone sample shifts
  */
 #define SPEED_SOUND_WATER_METERS_PER_SECOND 1498
-
 #define HYDROPHONE_SPACING_METERS 0.02
-
 #define MAX_TIME_BETWEEN_PHONES (HYDROPHONE_SPACING_METERS / SPEED_SOUND_WATER_METERS_PER_SECOND)
 
-#define MAX_SAMPLES_BETWEEN_PHONES ((MAX_TIME_BETWEEN_PHONES * SAMPLING_FREQUENCY))
+/**
+ * Defines the maximum samples that can occur between two hydrophones at a sampling rate of 5Msps.
+ */
+#define MAX_SAMPLES_BETWEEN_PHONES ((MAX_TIME_BETWEEN_PHONES * 5000000))
 
 #endif

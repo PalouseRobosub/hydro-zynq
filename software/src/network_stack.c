@@ -3,7 +3,7 @@
 #include "netif/xadapter.h"
 #include "xparameters.h"
 #include "abort.h"
-#include "db.h"
+#include "abort.h"
 #include "lwip/init.h"
 
 /**
@@ -44,15 +44,26 @@ result_t init_network_stack(struct ip_addr ip_address, struct ip_addr netmask,
 }
 
 /**
- * Forward traffic received rom the Ethernet driver into the network stack.
+ * Forward traffic received from the Ethernet driver into the network stack.
  *
  * @return None.
  */
 void dispatch_network_stack()
 {
-    uint32_t packets_rx = xemacif_input(&ethernet_interface);
-    if (packets_rx)
+    uint32_t total_packets = 0;
+    uint32_t packets_rx;
+
+    /*
+     * Continually receive packets until no more are available from the
+     * hardware.
+     */
+    while ((packets_rx = xemacif_input(&ethernet_interface)))
     {
-        dbprintf("Received %d packets\n", packets_rx);
+        total_packets += packets_rx;
+    }
+
+    if (total_packets)
+    {
+        dbprintf("Received %d packets\n", total_packets);
     }
 }

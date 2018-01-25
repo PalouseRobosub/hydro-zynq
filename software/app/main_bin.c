@@ -24,6 +24,8 @@
 
 #include "adc_dma_addresses.h"
 
+#include <string.h>
+
 /**
  * The DMA engine for reading samples.
  */
@@ -64,15 +66,98 @@ bool debug_stream = false;
  */
 HydroZynqParams params;
 
+typedef struct KeyValuePair
+{
+    char *key;
+    char *value;
+} KeyValuePair;
+
+result_t parse_packet(char *data, const size_t len, KeyValuePair *pairs, const size_t max_pairs, size_t *num_pairs)
+{
+    AbortIfNot(data, fail);
+    AbortIfNot(pairs, fail);
+    AbortIfNot(num_pairs, fail);
+
+    *num_pairs = 0;
+    char *last_start = data;
+    for (int i = 0; i < len && *num_pairs < max_pairs; ++i)
+    {
+        if (data[i] == ',' || data[i] == 0)
+        {
+            pairs[*num_pairs].key = last_start;
+            data[i] = 0;
+            (*num_pairs) = *num_pairs + 1;
+            last_start = &(data[i + 1]);
+        }
+
+        if (data[i] == 0)
+        {
+            break;
+        }
+    }
+
+    for (int i = 0; i < *num_pairs; ++i)
+    {
+        pairs[i].value = NULL;
+        for (int j = 0; j < strlen(pairs[i].key); ++j)
+        {
+            if (pairs[i].key[j] == ':')
+            {
+                pairs[i].key[j] = 0;
+                pairs[i].value = &(pairs[i].key[j + 1]);
+                break;
+            }
+        }
+
+        AbortIfNot(pairs[i].value, fail);
+    }
+
+    return success;
+}
+
 /**
- * Callback fro receiving a UDP packet.
+ * Callback for receiving a UDP packet.
  *
  * @return None.
  */
 void receive_command(void *arg, struct udp_pcb *upcb, struct pbuf *p, struct ip_addr *addr, uint16_t port)
 {
-    debug_stream = !debug_stream;
+    KeyValuePair pairs[10];
+    size_t num_entries = 0;
+
+    char data[1024];
+    if (p->len > (sizeof(data) - 1))
+    {
+        pbuf_free(p);
+        dbprintf("Packet too long! Length was %d but internal buffer is %d\n",
+                p->len, sizeof(data));
+        return;
+    }
+
+    memcpy(data, p->payload, p->len);
     pbuf_free(p);
+    data[p->len] = 0;
+
+    AbortIfNot(parse_packet(data, p->len + 1, pairs, 10, &num_entries), );
+
+    for (int i = 0; i < num_entries; ++i)
+    {
+        dbprintf("Key: '%s' Value: '%s'\n", pairs[i].key, pairs[i].value);
+        if (strcmp(pairs[i].key, "threshold") == 0)
+        {
+            unsigned int threshold;
+            AbortIfNot(sscanf(pairs[i].value, "%u", &threshold), );
+            params.ping_threshold = threshold;
+            dbprintf("Ping threshold has been set to %d\n", params.ping_threshold);
+        }
+        else if (strcmp(pairs[i].key, "reset") == 0)
+        {
+            /*
+             * Trigger a software reset of the Zynq.
+             */
+            give_up();
+        }
+    }
 }
 
 /**
@@ -93,7 +178,7 @@ result_t go()
      * Initialize the network stack with the specified IP address.
      */
     struct ip_addr our_ip, netmask, gateway;
-    IP4_ADDR(&our_ip, 192, 168, 0, 10);
+    IP4_ADDR(&our_ip, 192, 168, 0, 7);
     IP4_ADDR(&netmask, 255, 255, 255, 0);
     IP4_ADDR(&gateway, 192, 168, 1, 1);
 
@@ -132,7 +217,7 @@ result_t go()
     udp_socket_t command_socket, data_stream_socket, result_socket, xcorr_stream_socket;
 
     struct ip_addr dest_ip;
-    IP4_ADDR(&dest_ip, 192, 168, 0, 250);
+    IP4_ADDR(&dest_ip, 192, 168, 0, 2);
 
     AbortIfNot(init_udp(&command_socket), fail);
     AbortIfNot(bind_udp(&command_socket, IP_ADDR_ANY, COMMAND_SOCKET_PORT, receive_command), fail);
@@ -320,7 +405,11 @@ int main()
 {
     go();
 
-    //give_up();
-
-    while(1);
+    /*
+     * If go fails, we need to trigger a processor reset.
+     */
+    while (1)
+    {
+        give_up();
+    }
 }

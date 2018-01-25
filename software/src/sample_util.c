@@ -1,20 +1,34 @@
 #include "sample_util.h"
-#include "correlation_util.h"
+
 #include "abort.h"
-#include "types.h"
+#include "adc.h"
+#include "correlation_util.h"
+#include "dma.h"
 #include "system.h"
 #include "system_params.h"
 #include "time_util.h"
-#include "dma.h"
+#include "types.h"
 #include "xil_cache.h"
 
+/**
+ * Records a number of analog samples.
+ *
+ * @param dma A pointer to the AXI DMA driver to use for sample acquisition.
+ * @param data A pointer to where analog samples should be stored.
+ * @param sample_count The number of samples to take.
+ * @param adc The QuadADC driver that is connected to the DMA.
+ *
+ * @return Success or fail.
+ */
 result_t record(dma_engine_t *dma,
                 sample_t *data,
-                const size_t sample_count)
+                const size_t sample_count,
+                const adc_driver_t adc)
 {
     AbortIfNot(dma, fail);
     AbortIfNot(data, fail);
-    AbortIfNot(sample_count % SAMPLES_PER_PACKET == 0, fail);
+    AbortIfNot(adc.regs, fail);
+    AbortIfNot(sample_count % adc.regs->samples_per_packet == 0, fail);
 
     size_t total_samples = 0;
     size_t invalid_packets = 0;
@@ -24,21 +38,24 @@ result_t record(dma_engine_t *dma,
          * Write back the cache lines before allowing DMA to avoid any
          * corruption when we later invalidate the cache lines.
          */
-        Xil_DCacheFlushRange((INTPTR)&data[total_samples], 2 * 8 * SAMPLES_PER_PACKET);
+        Xil_DCacheFlushRange((INTPTR)&data[total_samples],
+                             2 * 8 * adc.regs->samples_per_packet);
 
-        AbortIfNot(init_dma_transfer(dma, &data[total_samples], 2 * 8 * SAMPLES_PER_PACKET), fail);
+        AbortIfNot(init_dma_transfer(dma, &data[total_samples],
+                    2 * 8 * adc.regs->samples_per_packet), fail);
         AbortIfNot(wait_for_dma_transfer(dma), fail);
 
         size_t samples = dma->regs->S2MM_LENGTH / 8;
-        if (samples == SAMPLES_PER_PACKET)
+        if (samples == adc.regs->samples_per_packet)
         {
             /*
              * Invalidate cache lines associated with data samples. Beware that
              * this can potentially wipe out cached values stored _around_ the
              * buffer we are invalidating, so it should have been written back
-             * earlier.
+             * earlier using a cache flush opertion.
              */
-            Xil_DCacheInvalidateRange((INTPTR)&data[total_samples], 8 * samples);
+            Xil_DCacheInvalidateRange((INTPTR)&data[total_samples],
+                                      8 * samples);
             total_samples += samples;
         }
         else
@@ -50,6 +67,17 @@ result_t record(dma_engine_t *dma,
     return success;
 }
 
+/**
+ * Normalize a number of samples.
+ *
+ * @note This function finds the mean for each channel and subtracts it from
+ *       each measurement of the respective channel.
+ *
+ * @param data A pointer to the data to normalize.
+ * @param len The length of samples to normalize.
+ *
+ * @return Success or fail.
+ */
 result_t normalize(sample_t *data, const size_t len)
 {
     AbortIfNot(data, fail);
@@ -89,26 +117,46 @@ result_t normalize(sample_t *data, const size_t len)
     return success;
 }
 
+/**
+ * Acquire sync with the ping.
+ *
+ * @param dma A pointer to the DMA driver to use for sampling.
+ * @param data A pointer to the location to store data.
+ * @param max_len The maximum number of samples pointed to by data.
+ * @param[out] start_time The tick that the ping started at.
+ * @param[out] found Specified true if the ping was found.
+ * @param[out] max_value The maximum value encountered on the reference channel.
+ * @param adc The QuadADC driver used for acquiring samples.
+ * @param sampling_frequency The sampling frequency of acquisition.
+ * @param sample_threshold The threshold to use for ping detection.
+ *
+ * @return Success or fail.
+ */
 result_t acquire_sync(dma_engine_t *dma,
                       sample_t *data,
                       size_t max_len,
                       tick_t *start_time,
                       bool *found,
-                      analog_sample_t *max_value)
+                      analog_sample_t *max_value,
+                      const adc_driver_t adc,
+                      const uint32_t sampling_frequency,
+                      analog_sample_t sample_threshold)
 {
     AbortIfNot(dma, fail);
     AbortIfNot(data, fail);
     AbortIfNot(start_time, fail);
     AbortIfNot(found, fail);
     AbortIfNot(max_value, fail);
+    AbortIfNot(adc.regs, fail);
+    AbortIfNot(sampling_frequency, fail);
 
     tick_t record_start = get_system_time();
-    if (max_len % SAMPLES_PER_PACKET)
+    if (max_len % adc.regs->samples_per_packet)
     {
-        max_len -= max_len % SAMPLES_PER_PACKET;
+        max_len -= max_len % adc.regs->samples_per_packet;
     }
 
-    AbortIfNot(record(dma, data, max_len), fail);
+    AbortIfNot(record(dma, data, max_len, adc), fail);
     AbortIfNot(normalize(data, max_len), fail);
 
     filter_coefficients_t filter_coefficients;
@@ -126,9 +174,10 @@ result_t acquire_sync(dma_engine_t *dma,
                 *max_value = data[i].sample[k];
             }
 
-            if (data[i].sample[k] > ADC_THRESHOLD)
+            if (data[i].sample[k] > sample_threshold)
             {
-                *start_time = record_start + i * (CPU_CLOCK_HZ / (float)SAMPLING_FREQUENCY);
+                *start_time = record_start +
+                              i * (CPU_CLOCK_HZ / (float)sampling_frequency);
                 *found = true;
                 return success;
             }

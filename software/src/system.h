@@ -5,6 +5,8 @@
 
 result_t init_system();
 
+void give_up();
+
 void set_board_led(bool enabled);
 
 void set_interrupts(bool enabled);

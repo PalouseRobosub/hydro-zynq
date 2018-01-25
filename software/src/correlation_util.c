@@ -11,7 +11,8 @@ result_t cross_correlate(const sample_t *data,
                          correlation_t *correlations,
                          const size_t correlation_len,
                          size_t *num_correlations,
-                         correlation_result_t *result)
+                         correlation_result_t *result,
+                         const uint32_t sampling_frequency)
 {
     AbortIfNot(data, fail);
     AbortIfNot(result, fail);
@@ -107,23 +108,25 @@ result_t cross_correlate(const sample_t *data,
     {
         int32_t num_samples_right_shifted = -1 * correlations[max_correlation_indices[i]].left_shift;
         dbprintf("%d %d - ", i, num_samples_right_shifted);
-        result->channel_delay_ns[i] = num_samples_right_shifted * 1000000000.0 / SAMPLING_FREQUENCY;
+        result->channel_delay_ns[i] = num_samples_right_shifted * 1000000000.0 / sampling_frequency;
     }
     dbprintf("\n");
 
     return success;
 }
 
-size_t ticks_to_samples(tick_t ticks)
+size_t ticks_to_samples(tick_t ticks, const uint32_t sampling_frequency)
 {
-    return (size_t)(ticks * SAMPLING_FREQUENCY / (float)CPU_CLOCK_HZ);
+    return (size_t)(ticks * sampling_frequency / (float)CPU_CLOCK_HZ);
 }
 
 result_t truncate(const sample_t *data,
                   const size_t len,
                   size_t *start_index,
                   size_t *end_index,
-                  bool *found)
+                  bool *found,
+                  const analog_sample_t threshold,
+                  const uint32_t sampling_frequency)
 {
     AbortIfNot(data, fail);
     AbortIfNot(found, fail);
@@ -136,7 +139,7 @@ result_t truncate(const sample_t *data,
     {
         for (size_t k = 0; k < 1; ++k)
         {
-            if (!*found && data[i].sample[k] > ADC_THRESHOLD)
+            if (!*found && data[i].sample[k] > threshold)
             {
                 dbprintf("Found %d on channel %d index %d\n", data[i].sample[k], k, i);
                 ping_start_index = i;
@@ -156,7 +159,7 @@ result_t truncate(const sample_t *data,
         return success;
     }
 
-    const size_t indices_before_start = ticks_to_samples(micros_to_ticks(200));
+    const size_t indices_before_start = ticks_to_samples(micros_to_ticks(200), sampling_frequency);
     if (indices_before_start > ping_start_index)
     {
         *start_index = 0;
@@ -166,7 +169,7 @@ result_t truncate(const sample_t *data,
         *start_index = ping_start_index - indices_before_start;
     }
 
-    *end_index = ping_start_index + ticks_to_samples(micros_to_ticks(200));
+    *end_index = ping_start_index + ticks_to_samples(micros_to_ticks(200), sampling_frequency);
     if (*end_index >= len)
     {
         *end_index = len - 1;

@@ -5,6 +5,7 @@
 #include "xscugic.h"
 #include "types.h"
 #include "regs/gpio_regs.h"
+#include "regs/slcr_regs.h"
 
 /**
  * Initializes the processing system.
@@ -43,6 +44,31 @@ result_t init_system()
     return success;
 }
 
+/**
+ * Fatal exit conditional. Reset the processor.
+ *
+ * @return None.
+ */
+void give_up()
+{
+    /*
+     * Unlock SLC registers.
+     */
+    SLCR->SLCR_UNLOCK = 0xDF0D;
+
+    /*
+     * Perform a reset of the processing system (PS).
+     */
+    SLCR->PSS_RST_CTRL = 1;
+}
+
+/**
+ * Enable or disable interrupts.
+ *
+ * @bool enabled True if interrupts should be enabled.
+ *
+ * @return None.
+ */
 void set_interrupts(bool enabled)
 {
     if (enabled)
@@ -63,6 +89,13 @@ void set_interrupts(bool enabled)
     }
 }
 
+/**
+ * Sets the status of the on-board LED for the MicroZed.
+ *
+ * @param enabled True if the LED should be turned on.
+ *
+ * @return None.
+ */
 void set_board_led(bool enabled)
 {
     uint32_t data = gpio_regs->DATA[1];
