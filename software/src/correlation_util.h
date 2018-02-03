@@ -16,7 +16,7 @@ result_t truncate(const sample_t *data,
         size_t *start_index,
         size_t *end_index,
         bool *found,
-        const analog_sample_t threshold,
+        const HydroZynqParams params,
         const uint32_t sampling_frequency);
 
 result_t filter(const sample_t *data,

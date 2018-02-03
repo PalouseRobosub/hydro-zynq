@@ -150,6 +150,30 @@ void receive_command(void *arg, struct udp_pcb *upcb, struct pbuf *p, struct ip_
             params.ping_threshold = threshold;
             dbprintf("Ping threshold has been set to %d\n", params.ping_threshold);
         }
+        else if (strcmp(pairs[i].key, "debug") == 0)
+        {
+            unsigned int debug = 0;
+            AbortIfNot(sscanf(pairs[i].value, "%u", &debug), );
+            debug_stream = (debug == 0)? false : true;
+            dbprintf("Debug stream is: %s\n",
+                    (debug_stream)? "Enabled" : "Disabled");
+        }
+        else if (strcmp(pairs[i].key, "pre_ping_duration_us") == 0)
+        {
+            unsigned int duration = 0;
+            AbortIfNot(sscanf(pairs[i].value, "%u", &duration), );
+
+            params.pre_ping_duration = micros_to_ticks(duration);
+            dbprintf("Pre-ping duration is %u us.\n", duration);
+        }
+        else if (strcmp(pairs[i].key, "post_ping_duration_us") == 0)
+        {
+            unsigned int duration = 0;
+            AbortIfNot(sscanf(pairs[i].value, "%u", &duration), );
+
+            params.post_ping_duration = micros_to_ticks(duration);
+            dbprintf("Post-ping duration is %u us.\n", duration);
+        }
         else if (strcmp(pairs[i].key, "reset") == 0)
         {
             /*
@@ -242,6 +266,8 @@ result_t go()
     params.sample_clk_div = adc.regs->clk_div;
     params.samples_per_packet = adc.regs->samples_per_packet;
     params.ping_threshold = INITIAL_ADC_THRESHOLD;
+    params.pre_ping_duration = micros_to_ticks(200);
+    params.post_ping_duration = micros_to_ticks(200);
 
     bool sync = false;
     tick_t previous_ping_tick = get_system_time();
@@ -262,7 +288,7 @@ result_t go()
             bool found = false;
             int sync_attempts = 0;
             analog_sample_t max_value;
-            while (!found)
+            while (!found && !debug_stream)
             {
                 uint32_t sample_duration_ms = 2100;
                 uint32_t samples_to_take = sample_duration_ms / 1000.0 * sampling_frequency;
@@ -288,9 +314,11 @@ result_t go()
                 }
             }
 
-            dbprintf("Synced: %f s - MaxVal: %d\n", ticks_to_seconds(previous_ping_tick), max_value);
-
-            sync = true;
+            if (found)
+            {
+                dbprintf("Synced: %f s - MaxVal: %d\n", ticks_to_seconds(previous_ping_tick), max_value);
+                sync = true;
+            }
         }
 
         /*
@@ -314,7 +342,7 @@ result_t go()
         /*
          * Record the ping.
          */
-        uint32_t sample_duration_ms = (debug_stream)? 300 : 300;
+        uint32_t sample_duration_ms = (debug_stream)? 2100 : 300;
         uint32_t num_samples = sample_duration_ms / 1000.0 * sampling_frequency;
         if (num_samples % params.samples_per_packet)
         {
@@ -327,11 +355,7 @@ result_t go()
         }
 
         tick_t sample_start_tick = get_system_time();
-        dbprintf("Sampling at: %f s\n", ticks_to_seconds(sample_start_tick));
         AbortIfNot(record(&dma, samples, num_samples, adc), fail);
-
-        float seconds = ticks_to_seconds(get_system_time() - sample_start_tick);
-        dbprintf("Sampling rate: %f Msps (%d in %f s)\n", num_samples / 1000000.0 / seconds, num_samples, seconds);
 
         AbortIfNot(normalize(samples, num_samples), fail);
 
@@ -342,57 +366,63 @@ result_t go()
         //AbortIfNot(filter(samples, num_samples, &coefficients), fail);
 
         /*
+         * If debugging is enabled, don't perform the correlation or truncation
+         * steps and just dump data.
+         */
+        if (debug_stream)
+        {
+            AbortIfNot(send_data(&data_stream_socket, samples, num_samples), fail);
+            continue;
+        }
+
+        /*
          * Truncate the data around the ping.
          */
         size_t start_index, end_index;
         bool located = false;
-        AbortIfNot(truncate(samples, num_samples, &start_index, &end_index, &located, params.ping_threshold, sampling_frequency), fail);
-        if (!located)
+        AbortIfNot(truncate(samples, num_samples, &start_index, &end_index, &located, params, sampling_frequency), fail);
+
+        sync = located;
+        if (!sync)
         {
             dbprintf("Failed to find the ping.\n");
-            sync = false;
-            if (debug_stream)
-            {
-                AbortIfNot(send_data(&data_stream_socket, samples, num_samples), fail);
-            }
             continue;
         }
-        else
-        {
-            tick_t offset = start_index * (CPU_CLOCK_HZ / sampling_frequency);
-            previous_ping_tick = sample_start_tick + offset;
-            dbprintf("Found ping: %f s\n", ticks_to_seconds(previous_ping_tick));
 
-            /*
-             * Locate the ping samples.
-             */
-            AbortIfNot(end_index > start_index, fail);
-            sample_t *ping_start = &samples[start_index];
-            size_t ping_length = end_index - start_index;
+        tick_t offset = start_index * (CPU_CLOCK_HZ / sampling_frequency);
+        previous_ping_tick = sample_start_tick + offset;
+        dbprintf("Found ping: %f s\n", ticks_to_seconds(previous_ping_tick));
 
-            /*
-             * Perform the correlation on the data.
-             */
-            correlation_result_t result;
-            size_t num_correlations;
+        /*
+         * Locate the ping samples.
+         */
+        AbortIfNot(end_index > start_index, fail);
+        sample_t *ping_start = &samples[start_index];
+        size_t ping_length = end_index - start_index;
 
-            tick_t start_time = get_system_time();
-            AbortIfNot(cross_correlate(ping_start, ping_length, correlations, MAX_SAMPLES * 2, &num_correlations, &result, sampling_frequency), fail);
+        /*
+         * Perform the correlation on the data.
+         */
+        correlation_result_t result;
+        size_t num_correlations;
 
-            tick_t duration_time = get_system_time() - start_time;
-            dbprintf("Correlation took %d ms\n", ticks_to_ms(duration_time));
-            dbprintf("Correlation results: %d %d %d\n", result.channel_delay_ns[0], result.channel_delay_ns[1], result.channel_delay_ns[2]);
+        tick_t start_time = get_system_time();
+        AbortIfNot(cross_correlate(ping_start, ping_length, correlations, MAX_SAMPLES * 2, &num_correlations, &result, sampling_frequency), fail);
 
-            /*
-             * Relay the result.
-             */
-            //AbortIfNot(send_result(&result_socket, &result), fail);
+        tick_t duration_time = get_system_time() - start_time;
+        dbprintf("Correlation took %d ms\n", ticks_to_ms(duration_time));
+        dbprintf("Correlation results: %d %d %d\n", result.channel_delay_ns[0], result.channel_delay_ns[1], result.channel_delay_ns[2]);
 
-            AbortIfNot(send_xcorr(&xcorr_stream_socket, correlations, num_correlations), fail);
+        /*
+         * Relay the result.
+         */
+        AbortIfNot(send_result(&result_socket, &result), fail);
 
-            //TODO: DEBUG: Only show the correlation parts.
-            AbortIfNot(send_data(&data_stream_socket, ping_start, ping_length), fail);
-        }
+        /*
+         * Send the data for the correlation portion and the correlation result.
+         */
+        AbortIfNot(send_xcorr(&xcorr_stream_socket, correlations, num_correlations), fail);
+        AbortIfNot(send_data(&data_stream_socket, ping_start, ping_length), fail);
     }
 }
 

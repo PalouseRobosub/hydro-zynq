@@ -67,7 +67,7 @@ def write_to_csv(packets, filename):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', type=str, help='Specifies output file name')
-    parser.add_argument('--hostname', type=str, default='192.168.072', help='Specifies the hostname to bind to')
+    parser.add_argument('--hostname', type=str, default='192.168.0.2', help='Specifies the hostname to bind to')
     args = parser.parse_args()
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

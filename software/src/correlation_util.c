@@ -125,7 +125,7 @@ result_t truncate(const sample_t *data,
                   size_t *start_index,
                   size_t *end_index,
                   bool *found,
-                  const analog_sample_t threshold,
+                  const HydroZynqParams params,
                   const uint32_t sampling_frequency)
 {
     AbortIfNot(data, fail);
@@ -139,7 +139,7 @@ result_t truncate(const sample_t *data,
     {
         for (size_t k = 0; k < 1; ++k)
         {
-            if (!*found && data[i].sample[k] > threshold)
+            if (!*found && data[i].sample[k] > params.ping_threshold)
             {
                 dbprintf("Found %d on channel %d index %d\n", data[i].sample[k], k, i);
                 ping_start_index = i;
@@ -159,7 +159,7 @@ result_t truncate(const sample_t *data,
         return success;
     }
 
-    const size_t indices_before_start = ticks_to_samples(micros_to_ticks(200), sampling_frequency);
+    const size_t indices_before_start = ticks_to_samples(params.pre_ping_duration, sampling_frequency);
     if (indices_before_start > ping_start_index)
     {
         *start_index = 0;
@@ -169,7 +169,7 @@ result_t truncate(const sample_t *data,
         *start_index = ping_start_index - indices_before_start;
     }
 
-    *end_index = ping_start_index + ticks_to_samples(micros_to_ticks(200), sampling_frequency);
+    *end_index = ping_start_index + ticks_to_samples(params.post_ping_duration, sampling_frequency);
     if (*end_index >= len)
     {
         *end_index = len - 1;

@@ -22,28 +22,6 @@
 #define XCORR_STREAM_PORT 3003
 #define DEBUG_PORT 3004
 
-/**
- * Defines configurable parameters of the board.
- */
-typedef struct HydroZynqParameters
-{
-    /**
-     * Specifies the number of analog samples per DMA transfer.
-     */
-    uint32_t samples_per_packet;
-
-    /**
-     * Specifies the sampling frequency divider.
-     */
-    uint32_t sample_clk_div;
-
-    /**
-     * Specifies the threshold value that denotes a ping.
-     */
-    analog_sample_t ping_threshold;
-
-} HydroZynqParams;
-
 #define INITIAL_ADC_THRESHOLD 500
 
 /**

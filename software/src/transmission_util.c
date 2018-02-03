@@ -28,7 +28,7 @@ result_t send_result(udp_socket_t *socket, correlation_result_t *result)
     /*
      * Format the result into an standard message.
      */
-    sprintf(str, "Result - A: %"PRId32" B: %"PRId32" C: %"PRId32,
+    sprintf(str, "Result - 1: %"PRId32" 2: %"PRId32" 3: %"PRId32"\n",
             result->channel_delay_ns[0],
             result->channel_delay_ns[1],
             result->channel_delay_ns[2]);

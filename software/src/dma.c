@@ -2,6 +2,7 @@
 #include "types.h"
 #include "abort.h"
 #include "regs/DmaRegs.h"
+#include "network_stack.h"
 
 result_t initialize_dma(dma_engine_t *dma, uint32_t base_address)
 {
@@ -62,7 +63,10 @@ result_t wait_for_dma_transfer(dma_engine_t *dma)
     /*
      * Wait for the IDLE bit to be set.
      */
-    while (dma->regs->S2MM_DMACR & 1 && (dma->regs->S2MM_DMASR & (1 << 1)) == 0);
+    while (dma->regs->S2MM_DMACR & 1 && (dma->regs->S2MM_DMASR & (1 << 1)) == 0)
+    {
+        dispatch_network_stack();
+    }
 
     return success;
 }

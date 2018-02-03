@@ -61,6 +61,41 @@ typedef struct correlation_result_t
 typedef struct filter_coefficients_t
 {
     float coefficients[6];
+
 } filter_coefficients_t;
+
+/**
+ * Defines configurable parameters of the board.
+ */
+typedef struct HydroZynqParameters
+{
+    /**
+     * Specifies the number of analog samples per DMA transfer.
+     */
+    uint32_t samples_per_packet;
+
+    /**
+     * Specifies the sampling frequency divider.
+     */
+    uint32_t sample_clk_div;
+
+    /**
+     * Specifies the threshold value that denotes a ping.
+     */
+    analog_sample_t ping_threshold;
+
+    /*
+     * Specifies the number of ticks before the threshold detection of a ping
+     * to perform a correlation for.
+     */
+    tick_t pre_ping_duration;
+
+    /**
+     * Specifies the number of ticks after the threshold detection of a ping
+     * to perform a correlation for.
+     */
+    tick_t post_ping_duration;
+
+} HydroZynqParams;
 
 #endif
