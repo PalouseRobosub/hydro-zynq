@@ -4,15 +4,12 @@ import sys
 import argparse
 import numpy
 import plot_data
+import zipfile
 
 class Sample:
     def __init__(self, data):
         self.channel = [None] * 4
         [self.channel[0], self.channel[1], self.channel[2], self.channel[3]] = struct.unpack('<hhhh', data)
-
-#        new_data = struct.pack('<HHHH', self.channel[0] << 2, self.channel[1] << 2, self.channel[2] << 2, self.channel[3] << 2)
-
-#        [self.channel[0], self.channel[1], self.channel[2], self.channel[3]] = struct.unpack('<hhhh', new_data)
 
 
 class Packet:
@@ -56,12 +53,19 @@ def write_to_csv(packets, filename):
 
     with open(filename, 'w') as f:
         f.write('Sample number, C1, C2, C3, C4\n')
-        for packet in packets:
+        bar = progressbar.ProgressBar(max_value=len(packets))
+        for i, packet in enumerate(packets):
+            bar.update(i)
             sample_index = 0
             for sample in packet.samples:
                 sample_number = sample_index + packet.number * samples_per_packet
                 sample_index += 1
                 f.write('{}, {}, {}, {}, {}\n'.format(sample_number, sample.channel[0], sample.channel[1], sample.channel[2], sample.channel[3]))
+
+    archive = zipfile.ZipFile('{}.zip'.format(os.path.basname(filename)), 'w', zipfile.ZIP_DEFLATED)
+    archive.write(filename)
+    archive.close()
+    os.remove(filename)
 
 
 if __name__ == '__main__':
@@ -95,7 +99,7 @@ if __name__ == '__main__':
                 plot_data.plot_samples(np_array, channels, labels, split=False)
                 if args.output is not None:
                     write_to_csv(whole_data, args.output)
-                    print('Written')
+                    print('CSV data written to {}.zip'.format(os.path.basename(args.output)))
                     sys.exit(0)
 
                 # Reset and prepare for next batch of data.
