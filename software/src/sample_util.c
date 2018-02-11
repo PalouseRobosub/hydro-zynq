@@ -129,6 +129,8 @@ result_t normalize(sample_t *data, const size_t len)
  * @param adc The QuadADC driver used for acquiring samples.
  * @param sampling_frequency The sampling frequency of acquisition.
  * @param sample_threshold The threshold to use for ping detection.
+ * @param filter The IIR filter to use for filtering received data.
+ * @param filter_order The order of the IIR filter.
  *
  * @return Success or fail.
  */
@@ -140,7 +142,9 @@ result_t acquire_sync(dma_engine_t *dma,
                       analog_sample_t *max_value,
                       const adc_driver_t adc,
                       const uint32_t sampling_frequency,
-                      analog_sample_t sample_threshold)
+                      analog_sample_t sample_threshold,
+                      filter_coefficients_t *iir_filter,
+                      const size_t filter_order)
 {
     AbortIfNot(dma, fail);
     AbortIfNot(data, fail);
@@ -156,13 +160,24 @@ result_t acquire_sync(dma_engine_t *dma,
         max_len -= max_len % adc.regs->samples_per_packet;
     }
 
+    /*
+     * Record and normalize the signal.
+     */
     AbortIfNot(record(dma, data, max_len, adc), fail);
     AbortIfNot(normalize(data, max_len), fail);
 
-    filter_coefficients_t filter_coefficients;
+    /*
+     * Filter the received signal using the provided filter.
+     */
+    if (filter_order > 0)
+    {
+        AbortIfNot(filter(data, max_len, iir_filter, filter_order), fail);
+    }
 
-    AbortIfNot(filter(data, max_len, &filter_coefficients), fail);
-
+    /*
+     * Search the filtered signal for the maximum value. If it is
+     * above the threshold, indicate that sync was found.
+     */
     *max_value = data[0].sample[0];
 
     for (size_t i = 0; i < max_len; ++i)

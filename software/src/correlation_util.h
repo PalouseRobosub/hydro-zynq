@@ -19,8 +19,9 @@ result_t truncate(const sample_t *data,
         const HydroZynqParams params,
         const uint32_t sampling_frequency);
 
-result_t filter(const sample_t *data,
+result_t filter(sample_t *data,
                 const size_t len,
-                filter_coefficients_t *coeffs);
+                filter_coefficients_t *coeffs,
+                const size_t filter_order);
 
 #endif

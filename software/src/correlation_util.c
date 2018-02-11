@@ -178,7 +178,10 @@ result_t truncate(const sample_t *data,
     return success;
 }
 
-result_t filter(const sample_t *data, const size_t len, filter_coefficients_t *coeffs)
+result_t filter(sample_t *data,
+                const size_t len,
+                filter_coefficients_t *coeffs,
+                const size_t filter_order)
 {
     AbortIfNot(data, fail);
     AbortIfNot(coeffs, fail);
@@ -186,5 +189,47 @@ result_t filter(const sample_t *data, const size_t len, filter_coefficients_t *c
     /*
      * TODO: Implement filtering algorithm.
      */
+    for (size_t f = 0; f < filter_order; ++f)
+    {
+        const double reference_coefficient = coeffs[f].coefficients[3];
+
+        /*
+         * Normalize the filter coefficients by A0.
+         */
+        double coefficients[6];
+        for (int i = 0; i < 6; ++i)
+        {
+            coefficients[i] = coeffs[f].coefficients[i] / reference_coefficient;
+        }
+
+        double z1[4] = {0}, z2[4] = {0};
+
+        for (int i = 0; i < len; ++i)
+        {
+            for (int c = 0; c < 4; ++c)
+            {
+                const double old_value = data[i].sample[c];
+                const double new_value = coefficients[0] * old_value + z1[c];
+
+                /*
+                 * Update the IIR filter state coefficients for each channel.
+                 */
+                z1[c] = coefficients[1] * old_value + z2[c] -
+                            coefficients[4] * new_value;
+
+                z2[c] = coefficients[2] * old_value -
+                            coefficients[5] * new_value;
+
+
+                /*
+                 * Update the new measurement for the current sample after
+                 * filtering.
+                 */
+                data[i].sample[c] = new_value;
+            }
+        }
+    }
+
+
     return success;
 }
