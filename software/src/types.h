@@ -96,6 +96,11 @@ typedef struct HydroZynqParameters
      */
     tick_t post_ping_duration;
 
+    /**
+     * Specified true if filtering should be completed on data.
+     */
+    bool filter;
+
 } HydroZynqParams;
 
 #endif

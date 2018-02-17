@@ -181,6 +181,14 @@ void receive_command(void *arg, struct udp_pcb *upcb, struct pbuf *p, struct ip_
             params.ping_threshold = threshold;
             dbprintf("Ping threshold has been set to %d\n", params.ping_threshold);
         }
+        else if (strcmp(pairs[i].key, "filter") == 0)
+        {
+            unsigned int debug = 0;
+            AbortIfNot(sscanf(pairs[i].value, "%u", &debug), );
+            params.filter = (debug == 0)? false : true;
+            dbprintf("Filtering is: %s\n",
+                    (debug_stream)? "Enabled" : "Disabled");
+        }
         else if (strcmp(pairs[i].key, "debug") == 0)
         {
             unsigned int debug = 0;
@@ -326,6 +334,7 @@ result_t go()
     params.ping_threshold = INITIAL_ADC_THRESHOLD;
     params.pre_ping_duration = micros_to_ticks(200);
     params.post_ping_duration = micros_to_ticks(200);
+    params.filter = false;
 
     bool sync = false;
     tick_t previous_ping_tick = get_system_time();
@@ -358,7 +367,7 @@ result_t go()
                                         &max_value,
                                         adc,
                                         sampling_frequency,
-                                        params.ping_threshold,
+                                        &params,
                                         highpass_iir,
                                         5), fail);
 
@@ -430,11 +439,14 @@ result_t go()
         /*
          * Filter the received signal.
          */
-        const tick_t filter_start_time = get_system_time();
-        AbortIfNot(filter(samples, num_samples, highpass_iir, 5), fail);
+        if (params.filter)
+        {
+            const tick_t filter_start_time = get_system_time();
+            AbortIfNot(filter(samples, num_samples, highpass_iir, 5), fail);
 
-        dbprintf("Filtering took %lf seconds.\n",
-                ticks_to_seconds(get_system_time() - filter_start_time));
+            dbprintf("Filtering took %lf seconds.\n",
+                    ticks_to_seconds(get_system_time() - filter_start_time));
+        }
 
         /*
          * If debugging is enabled, don't perform the correlation or truncation

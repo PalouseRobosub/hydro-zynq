@@ -142,17 +142,20 @@ result_t acquire_sync(dma_engine_t *dma,
                       analog_sample_t *max_value,
                       const adc_driver_t adc,
                       const uint32_t sampling_frequency,
-                      analog_sample_t sample_threshold,
+                      HydroZynqParams *params,
                       filter_coefficients_t *iir_filter,
                       const size_t filter_order)
 {
     AbortIfNot(dma, fail);
     AbortIfNot(data, fail);
+    AbortIfNot(params, fail);
     AbortIfNot(start_time, fail);
     AbortIfNot(found, fail);
     AbortIfNot(max_value, fail);
     AbortIfNot(adc.regs, fail);
     AbortIfNot(sampling_frequency, fail);
+
+    const analog_sample_t sample_threshold = params->ping_threshold;
 
     tick_t record_start = get_system_time();
     if (max_len % adc.regs->samples_per_packet)
@@ -169,7 +172,7 @@ result_t acquire_sync(dma_engine_t *dma,
     /*
      * Filter the received signal using the provided filter.
      */
-    if (filter_order > 0)
+    if (filter_order > 0 && params->filter)
     {
         AbortIfNot(filter(data, max_len, iir_filter, filter_order), fail);
     }

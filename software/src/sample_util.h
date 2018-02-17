@@ -18,7 +18,7 @@ result_t acquire_sync(dma_engine_t *dma,
                       analog_sample_t *max_value,
                       const adc_driver_t adc,
                       const uint32_t sampling_frequency,
-                      const analog_sample_t sample_threshold,
+                      HydroZynqParams *params,
                       filter_coefficients_t *filter,
                       const size_t filter_order);
 
