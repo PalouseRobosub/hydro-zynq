@@ -2,22 +2,23 @@
 
 import argparse
 import rospy
+import re
 import socket
 from robosub.msg import HydrophoneDeltas
 
 
 class DeltaPacket:
     def __init__(self, data):
-        matches = re.search(r'1: (\d+) 2: (\d+) 3: (\d+)', data)
+        matches = re.search(r'.*1: (-?\d+) 2: (-?\d+) 3: (-?\d+).*', data)
         if not matches:
             raise Exception('Invalid result string')
 
         if len(matches.groups()) != 3:
             raise Exception('Valid number of groups')
 
-        self.x = matches(1)
-        self.y = matches(2)
-        self.z = matches(3)
+        self.x = int(matches.group(1))
+        self.y = int(matches.group(2))
+        self.z = int(matches.group(3))
 
 
 if __name__ == '__main__':
@@ -33,18 +34,18 @@ if __name__ == '__main__':
             queue_size=1)
 
     while not rospy.is_shutdown():
-        data = sock.receive(1024)
+        data = sock.recv(1024)
 
         try:
             deltas = DeltaPacket(data)
-        except e:
+        except Exception as e:
             rospy.logwarn('Received invalid HydroZynq datagram: {}'.format(e))
             continue
 
         msg = HydrophoneDeltas()
 
         msg.header.stamp = rospy.Time.now()
-        msg.header.frame = 'hydrophone_array'
+        msg.header.frame_id = 'hydrophone_array'
         msg.xDelta = rospy.Duration(deltas.x)
         msg.yDelta = rospy.Duration(deltas.y)
         msg.zDelta = rospy.Duration(deltas.z)

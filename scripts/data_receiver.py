@@ -2,9 +2,11 @@ import socket
 import struct
 import sys
 import argparse
+import os
 import numpy
 import plot_data
 import zipfile
+import progressbar
 
 class Sample:
     def __init__(self, data):
@@ -46,13 +48,16 @@ def write_to_csv(packets, filename):
     low_index = 0
     high_index = 0
 
+    print 'Searching for start packet...'
     for packet in packets:
         if packet.number is 0:
             samples_per_packet = len(packet.samples)
             print('Samples per packet: {}'.format(len(packet.samples)))
+            break
 
     with open(filename, 'w') as f:
         f.write('Sample number, C1, C2, C3, C4\n')
+        print 'Starting file write.'
         bar = progressbar.ProgressBar(max_value=len(packets))
         for i, packet in enumerate(packets):
             bar.update(i)
@@ -61,8 +66,9 @@ def write_to_csv(packets, filename):
                 sample_number = sample_index + packet.number * samples_per_packet
                 sample_index += 1
                 f.write('{}, {}, {}, {}, {}\n'.format(sample_number, sample.channel[0], sample.channel[1], sample.channel[2], sample.channel[3]))
+        bar.update(len(packets))
 
-    archive = zipfile.ZipFile('{}.zip'.format(os.path.basname(filename)), 'w', zipfile.ZIP_DEFLATED)
+    archive = zipfile.ZipFile('{}.zip'.format(os.path.splitext(filename)[0]), 'w', zipfile.ZIP_DEFLATED)
     archive.write(filename)
     archive.close()
     os.remove(filename)
@@ -86,21 +92,30 @@ if __name__ == '__main__':
         labels[channel] = "Ch{}".format(channel)
 
 
+    bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
     while True:
         data, addr = sock.recvfrom(8 * 3000 + 4)
 
         packet = Packet(data);
+
+        if started and packet.number is not 0:
+            bar.update(packet.number)
+
         if packet.number is 0:
             if started:
-                for packet in whole_data:
+                print 'Starting parse.'
+                parse_bar = progressbar.ProgressBar(max_value=len(whole_data))
+                for i, packet in enumerate(whole_data):
+                    parse_bar.update(i)
                     packet._parse()
-                print('Got data: {} long'.format(len(whole_data)))
+                parse_bar.update(len(whole_data))
                 np_array = to_numpy(whole_data)
-                plot_data.plot_samples(np_array, channels, labels, split=False)
                 if args.output is not None:
                     write_to_csv(whole_data, args.output)
-                    print('CSV data written to {}.zip'.format(os.path.basename(args.output)))
+                    print('CSV data written to {}.zip'.format(os.path.splitext(args.output)[0]))
                     sys.exit(0)
+
+                plot_data.plot_samples(np_array, channels, labels, split=False)
 
                 # Reset and prepare for next batch of data.
                 sock.close()
@@ -110,6 +125,7 @@ if __name__ == '__main__':
                 started = False
 
             else:
+                print 'Starting log'
                 started = True
 
         if started:

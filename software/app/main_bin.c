@@ -430,7 +430,11 @@ result_t go()
         /*
          * Filter the received signal.
          */
+        const tick_t filter_start_time = get_system_time()
         AbortIfNot(filter(samples, num_samples, highpass_iir, 5), fail);
+
+        dbprintf("Filtering took %lf seconds.\n",
+                ticks_to_seconds(get_system_time() - filter_start_time));
 
         /*
          * If debugging is enabled, don't perform the correlation or truncation
