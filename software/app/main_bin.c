@@ -62,6 +62,11 @@ correlation_t correlations[50000];
 bool debug_stream = false;
 
 /**
+ * Specifies that the ping has been synced on.
+ */
+bool sync = false;
+
+/**
  * Specifies the current operating parameters of the application.
  */
 HydroZynqParams params;
@@ -179,6 +184,7 @@ void receive_command(void *arg, struct udp_pcb *upcb, struct pbuf *p, struct ip_
             unsigned int threshold;
             AbortIfNot(sscanf(pairs[i].value, "%u", &threshold), );
             params.ping_threshold = threshold;
+            sync = false;
             dbprintf("Ping threshold has been set to %d\n", params.ping_threshold);
         }
         else if (strcmp(pairs[i].key, "filter") == 0)
@@ -218,6 +224,7 @@ void receive_command(void *arg, struct udp_pcb *upcb, struct pbuf *p, struct ip_
             /*
              * Trigger a software reset of the Zynq.
              */
+            dbprintf("Resetting Zynq...");
             give_up();
         }
     }
@@ -326,17 +333,23 @@ result_t go()
 
     set_interrupts(true);
 
-    /**
+    /*
      * Set up the initial parameters.
      */
     params.sample_clk_div = adc.regs->clk_div;
     params.samples_per_packet = adc.regs->samples_per_packet;
     params.ping_threshold = INITIAL_ADC_THRESHOLD;
-    params.pre_ping_duration = micros_to_ticks(200);
-    params.post_ping_duration = micros_to_ticks(200);
+
+    /*
+     * Perform a correlation for two wavelengths after the threshold is
+     * encountered. Before the threshold will be either the initial wavefronts
+     * or white noise floor. Because the noise floor is small, it will not
+     * affect the correlation.
+     */
+    params.pre_ping_duration = micros_to_ticks(100);
+    params.post_ping_duration = micros_to_ticks(50);
     params.filter = false;
 
-    bool sync = false;
     tick_t previous_ping_tick = get_system_time();
     while (1)
     {
