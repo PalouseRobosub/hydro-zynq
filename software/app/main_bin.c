@@ -264,7 +264,70 @@ void receive_command(void *arg,
                 AbortIfNot(fail, );
             }
 
-            dbprintf("Frequency target is now: %d\n", frequency);
+            dbprintf("Primary frequency target is now: %d\n", frequency);
+        }
+        else if (strcmp(pairs[i].key, "track") == 0)
+        {
+            unsigned int frequency = 0;
+            AbortIfNot(sscanf(pairs[i].value, "%u", &frequency), );
+
+            if (frequency == 25000)
+            {
+                params.track_25khz = true;
+            }
+            else if (frequency == 30000)
+            {
+                params.track_30khz = true;
+            }
+            else if (frequency == 35000)
+            {
+                params.track_35khz = true;
+            }
+            else if (frequency == 40000)
+            {
+                params.track_40khz = true;
+            }
+            else
+            {
+                dbprintf("Unkown frequency specified: %u\n", frequency);
+                dbprintf("Please use one of the following: 25000, ");
+                dbprintf("30000, 35000, 40000\n");
+                AbortIfNot(fail, );
+            }
+
+            frequency_sync = false;
+            dbprintf("Frequency is now tracked: %d\n", frequency);
+        }
+        else if (strcmp(pairs[i].key, "untrack") == 0)
+        {
+            unsigned int frequency = 0;
+            AbortIfNot(sscanf(pairs[i].value, "%u", &frequency), );
+
+            if (frequency == 25000)
+            {
+                params.track_25khz = false;
+            }
+            else if (frequency == 30000)
+            {
+                params.track_30khz = false;
+            }
+            else if (frequency == 35000)
+            {
+                params.track_35khz = false;
+            }
+            else if (frequency == 40000)
+            {
+                params.track_40khz = false;
+            }
+            else
+            {
+                dbprintf("Unkown frequency specified: %u\n", frequency);
+                dbprintf("Please use one of the following: 25000, ");
+                dbprintf("30000, 35000, 40000\n");
+                AbortIfNot(fail, );
+            }
+
+            dbprintf("Frequency is no longer tracked: %d\n", frequency);
         }
         else if (strcmp(pairs[i].key, "reset") == 0)
         {
@@ -403,7 +466,15 @@ result_t go()
     params.sample_clk_div = adc.regs->clk_div;
     params.samples_per_packet = adc.regs->samples_per_packet;
     params.ping_threshold = INITIAL_ADC_THRESHOLD;
-    params.primary_frequency = ThirtyFiveKHz;
+
+    /*
+     * Track all frequencies.
+     */
+    params.primary_frequency = TwentyFiveKHz;
+    params.track_25khz = true;
+    params.track_30khz = true;
+    params.track_35khz = true;
+    params.track_40khz = true;
 
     /*
      * Perform a correlation for two wavelengths after the threshold is
@@ -528,8 +599,16 @@ result_t go()
                 else
                 {
                     /*
-                     * Otherwise, cycle to the next scheduled ping - we missed
-                     * the last one.
+                     * We missed this ping. Set a timer for the next one in the
+                     * future and enqueue it.
+                     */
+                    current_ping.time += ms_to_ticks(2000);
+                    AbortIfNot(push_ring_buffer(&future_ping_queue,
+                                                current_ping),
+                        fail);
+
+                    /*
+                     * Cycle to the next scheduled ping.
                      */
                     AbortIfNot(pop_ring_buffer(&future_ping_queue,
                                                &current_ping),
@@ -646,6 +725,12 @@ result_t go()
                 last_sample = num_samples - 1;
             }
 
+            /*
+             * Empty out the ring buffer queue - we will reset everything
+             * within this code section.
+             */
+            AbortIfNot(init_ring_buffer(&future_ping_queue), fail);
+
             float primary_frequency;
             AbortIfNot(get_frequency(&samples[start_index],
                                      last_sample - start_index + 1,
@@ -692,9 +777,12 @@ result_t go()
                         ping35khz.time = previous_ping_tick + ms_to_ticks(900);
                         ping40khz.time = previous_ping_tick + ms_to_ticks(500);
 
-                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
-                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
-                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
+                        if (params.track_40khz)
+                            AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
+                        if (params.track_35khz)
+                            AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
+                        if (params.track_30khz)
+                            AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
                         AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
 
                         frequency_sync = true;
@@ -736,9 +824,12 @@ result_t go()
                         ping35khz.time = previous_ping_tick + ms_to_ticks(1400);
                         ping40khz.time = previous_ping_tick + ms_to_ticks(1000);
 
-                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
-                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
-                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
+                        if (params.track_25khz)
+                            AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
+                        if (params.track_40khz)
+                            AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
+                        if (params.track_35khz)
+                            AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
                         AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
 
                         frequency_sync = true;
@@ -780,9 +871,12 @@ result_t go()
                         ping35khz.time = previous_ping_tick + ms_to_ticks(2000);
                         ping40khz.time = previous_ping_tick + ms_to_ticks(1600);
 
-                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
-                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
-                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
+                        if (params.track_30khz)
+                            AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
+                        if (params.track_25khz)
+                            AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
+                        if (params.track_40khz)
+                            AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
                         AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
 
                         frequency_sync = true;
@@ -824,9 +918,12 @@ result_t go()
                         ping35khz.time = previous_ping_tick + ms_to_ticks(400);
                         ping40khz.time = previous_ping_tick + ms_to_ticks(2000);
 
-                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
-                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
-                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
+                        if (params.track_35khz)
+                            AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
+                        if (params.track_30khz)
+                            AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
+                        if (params.track_25khz)
+                            AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
                         AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
 
                         frequency_sync = true;
@@ -895,9 +992,13 @@ result_t go()
                 result.channel_delay_ns[1],
                 result.channel_delay_ns[2]);
 
+        /*
+         * At this point, the ping frequency should be know either through FFT
+         * or through scheduling guarantees.
+         */
+        AbortIf(current_ping.frequency == Unknown, fail);
+
         #ifndef EMULATED
-        if (current_ping.frequency != Unknown)
-        {
             /*
              * Relay the result.
              */
@@ -917,8 +1018,14 @@ result_t go()
 
             AbortIfNot(send_data(&data_stream_socket, ping_start, ping_length),
                 fail);
-        }
         #endif
+
+        /*
+         * Schedule the next ping for this frequency onto the queue.
+         */
+        current_ping.time = previous_ping_tick + ticks_to_ms(2000);
+        AbortIfNot(push_ring_buffer(&future_ping_queue, current_ping),
+            fail);
     }
 }
 

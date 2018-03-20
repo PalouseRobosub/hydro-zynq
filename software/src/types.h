@@ -170,6 +170,30 @@ typedef struct HydroZynqParameters
      */
     PingFrequency primary_frequency;
 
+    /**
+     * Specified true if the 25KHz signal should be tracked when not the primary
+     * frequency.
+     */
+    bool track_25khz;
+
+    /**
+     * Specified true if the 30KHz signal should be tracked when not the primary
+     * frequency.
+     */
+    bool track_30khz;
+
+    /**
+     * Specified true if the 35KHz signal should be tracked when not the primary
+     * frequency.
+     */
+    bool track_35khz;
+
+    /**
+     * Specified true if the 40KHz signal should be tracked when not the primary
+     * frequency.
+     */
+    bool track_40khz;
+
 } HydroZynqParams;
 
 #endif
