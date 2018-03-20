@@ -14,6 +14,7 @@
 #include "lwip/ip.h"
 #include "lwip/udp.h"
 #include "network_stack.h"
+#include "ring_buffer.h"
 #include "sample_util.h"
 #include "spi.h"
 #include "system.h"
@@ -43,8 +44,7 @@ spi_driver_t adc_spi;
 adc_driver_t adc;
 
 /**
- * The maximum number of samples for 2.2 seconds at 65Msps.
- */
+ * The maximum number of samples for 2.2 seconds at 65Msps.  */
 #define MAX_SAMPLES 45000 * 2200
 
 /**
@@ -168,7 +168,11 @@ result_t parse_packet(char *data,
  *
  * @return None.
  */
-void receive_command(void *arg, struct udp_pcb *upcb, struct pbuf *p, struct ip_addr *addr, uint16_t port)
+void receive_command(void *arg,
+                     struct udp_pcb *upcb,
+                     struct pbuf *p,
+                     struct ip_addr *addr,
+                     uint16_t port)
 {
     KeyValuePair pairs[10];
     size_t num_entries = 0;
@@ -411,10 +415,12 @@ result_t go()
     params.post_ping_duration = micros_to_ticks(50);
     params.filter = false;
 
-    tick_t previous_ping_tick = get_system_time();
+    ring_buffer_t future_ping_queue;
+    AbortIfNot(init_ring_buffer(&future_ping_queue), fail);
     while (1)
     {
-        const uint32_t sampling_frequency = FPGA_CLK / (params.sample_clk_div * 2);
+        const uint32_t sampling_frequency = FPGA_CLK /
+                                            (params.sample_clk_div * 2);
         const PingFrequency tracked_frequency = params.primary_frequency;
 
         /*
@@ -430,10 +436,13 @@ result_t go()
             bool found = false;
             int sync_attempts = 0;
             analog_sample_t max_value;
+            tick_t previous_ping_tick;
             while (!found && !debug_stream)
             {
                 uint32_t sample_duration_ms = 2100;
-                uint32_t samples_to_take = sample_duration_ms / 1000.0 * sampling_frequency;
+                uint32_t samples_to_take = sample_duration_ms / 1000.0 *
+                                           sampling_frequency;
+
                 AbortIfNot(acquire_sync(&dma,
                                         samples,
                                         samples_to_take,
@@ -454,15 +463,29 @@ result_t go()
 
                 if (!found)
                 {
-                    dbprintf("Failed to find ping during sync phase: %d - MaxVal: %d\n", ++sync_attempts, max_value);
+                    dbprintf("Failed to find ping during sync "
+                             "phase: %d - MaxVal: %d\n",
+                                ++sync_attempts,
+                                max_value);
                 }
             }
 
             if (found)
             {
-                dbprintf("Synced: %f s - MaxVal: %d\n", ticks_to_seconds(previous_ping_tick), max_value);
+                dbprintf("Synced: %f s - MaxVal: %d\n",
+                        ticks_to_seconds(previous_ping_tick),
+                        max_value);
                 sync = true;
                 frequency_sync = false;
+
+                const Ping new_ping = {
+                    .frequency = Unknown,
+                    .time = previous_ping_tick + ms_to_ticks(2000)
+                };
+
+                AbortIfNot(init_ring_buffer(&future_ping_queue), fail);
+                AbortIfNot(push_ring_buffer(&future_ping_queue, new_ping),
+                    fail);
             }
         }
 
@@ -470,12 +493,48 @@ result_t go()
          * Fast forward the previous ping tick until the most likely time
          * of the most recent ping.
          */
+        Ping current_ping;
         if (!debug_stream)
         {
-            tick_t next_ping_tick = previous_ping_tick;
-            while (get_system_time() > (next_ping_tick - ms_to_ticks(50)))
+            /*
+             * Figure out when the next ping should be arriving.
+             */
+            AbortIfNot(pop_ring_buffer(&future_ping_queue, &current_ping),
+                fail);
+
+            /*
+             * If it is too late to record the ping we just removed from the
+             * queue, cycle forward in the queue or fast forward our timestamp
+             * if there are no other queued pings.
+             */
+            while ((current_ping.time - ms_to_ticks(25)) < get_system_time())
             {
-                next_ping_tick += ms_to_ticks(2000);
+                /*
+                 * Never cycle past the frequency of interest. We have to
+                 * guarantee that we measure this ping atleast once every two
+                 * ping cycles. Additionally, do not cycle forward if there are
+                 * no more scheduled pings available in the queue.
+                 */
+                size_t queue_length = 0;
+                AbortIfNot(length_ring_buffer(&future_ping_queue,
+                                              &queue_length),
+                    fail);
+
+                if (current_ping.frequency == params.primary_frequency ||
+                    queue_length == 0)
+                {
+                    current_ping.time += ms_to_ticks(2000);
+                }
+                else
+                {
+                    /*
+                     * Otherwise, cycle to the next scheduled ping - we missed
+                     * the last one.
+                     */
+                    AbortIfNot(pop_ring_buffer(&future_ping_queue,
+                                               &current_ping),
+                        fail);
+                }
             }
 
             /*
@@ -483,28 +542,30 @@ result_t go()
              */
             AbortIfNot(request_thruster_shutdown(
                         &silent_request_socket,
-                        (next_ping_tick - ms_to_ticks(50)),
-                        ms_to_ticks(100)), fail);
+                        (current_ping.time - ms_to_ticks(25)),
+                        ms_to_ticks(50)), fail);
 
             /*
-             * Wait until the ping is about to come (100ms before).
+             * Wait until the ping is about to come before recording.
              */
-            while (get_system_time() < (next_ping_tick - ms_to_ticks(50)));
+            while (get_system_time() < (current_ping.time - ms_to_ticks(25)));
         }
 
         /*
          * Record the ping.
          */
-        uint32_t sample_duration_ms = (debug_stream)? 2100 : 300;
+        uint32_t sample_duration_ms = (debug_stream)? 2100 : 100;
         uint32_t num_samples = sample_duration_ms / 1000.0 * sampling_frequency;
         if (num_samples % params.samples_per_packet)
         {
-            num_samples += (params.samples_per_packet - (num_samples % params.samples_per_packet));
+            num_samples += (params.samples_per_packet -
+                    (num_samples % params.samples_per_packet));
         }
 
         if (num_samples > MAX_SAMPLES)
         {
-            num_samples = MAX_SAMPLES - (MAX_SAMPLES % adc.regs->samples_per_packet);
+            num_samples = MAX_SAMPLES -
+                (MAX_SAMPLES % adc.regs->samples_per_packet);
         }
 
         tick_t sample_start_tick = get_system_time();
@@ -530,7 +591,8 @@ result_t go()
          */
         if (debug_stream)
         {
-            AbortIfNot(send_data(&data_stream_socket, samples, num_samples), fail);
+            AbortIfNot(send_data(&data_stream_socket, samples, num_samples),
+                fail);
             continue;
         }
 
@@ -539,15 +601,38 @@ result_t go()
          */
         size_t start_index, end_index;
         bool located = false;
-        AbortIfNot(truncate(samples, num_samples, &start_index, &end_index, &located, params, sampling_frequency), fail);
+        AbortIfNot(truncate(samples,
+                            num_samples,
+                            &start_index,
+                            &end_index,
+                            &located,
+                            params,
+                            sampling_frequency),
+            fail);
 
-        sync = located;
-        if (!sync)
+        if (!located)
         {
-            frequency_sync = false;
-            dbprintf("Failed to find the ping.\n");
+            /*
+             * Only mark sync as lost if the primary ping was lost. Secondary
+             * signal tracking may be too far away and thus too quiet to hear.
+             * These errors should be ignored.
+             */
+            if (current_ping.frequency == params.primary_frequency)
+            {
+                sync = false;
+                frequency_sync = false;
+                dbprintf("Failed to find primary ping frequency.\n");
+            }
+            else
+            {
+                dbprintf("Failed to find secondary ping.\n");
+            }
+
             continue;
         }
+
+        tick_t offset = start_index * (CPU_CLOCK_HZ / sampling_frequency);
+        const tick_t previous_ping_tick = sample_start_tick + offset;
 
         /*
          * Lock on to the proper frequency.
@@ -577,24 +662,58 @@ result_t go()
             dbprintf("Primary frequency of ping is %.2lf KHz\n",
                     primary_frequency / 1000.0);
 
+            Ping ping25khz = {
+                .frequency = TwentyFiveKHz,
+                .time = 0
+            };
+
+            Ping ping30khz = {
+                .frequency = ThirtyKHz,
+                .time = 0
+            };
+
+            Ping ping35khz = {
+                .frequency = ThirtyFiveKHz,
+                .time = 0
+            };
+
+            Ping ping40khz = {
+                .frequency = FourtyKHz,
+                .time = 0
+            };
+
             if (primary_frequency >= 22500 && primary_frequency < 27500)
             {
                 switch (tracked_frequency)
                 {
                     case TwentyFiveKHz:
+                        ping25khz.time = previous_ping_tick + ms_to_ticks(2000);
+                        ping30khz.time = previous_ping_tick + ms_to_ticks(1500);
+                        ping35khz.time = previous_ping_tick + ms_to_ticks(900);
+                        ping40khz.time = previous_ping_tick + ms_to_ticks(500);
+
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
+
                         frequency_sync = true;
+                        current_ping.frequency = TwentyFiveKHz;
                         break;
 
                     case ThirtyKHz:
-                        previous_ping_tick += ms_to_ticks(1500);
+                        ping25khz.time = previous_ping_tick + ms_to_ticks(1500);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
                         break;
 
                     case ThirtyFiveKHz:
-                        previous_ping_tick += ms_to_ticks(900);
+                        ping25khz.time = previous_ping_tick + ms_to_ticks(900);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
                         break;
 
                     case FourtyKHz:
-                        previous_ping_tick += ms_to_ticks(500);
+                        ping25khz.time = previous_ping_tick + ms_to_ticks(500);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
                         break;
 
                     default:
@@ -606,21 +725,34 @@ result_t go()
             {
                 switch (tracked_frequency)
                 {
-
                     case TwentyFiveKHz:
-                        previous_ping_tick += ms_to_ticks(500);
+                        ping30khz.time = previous_ping_tick + ms_to_ticks(500);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
                         break;
 
                     case ThirtyKHz:
+                        ping25khz.time = previous_ping_tick + ms_to_ticks(500);
+                        ping30khz.time = previous_ping_tick + ms_to_ticks(2000);
+                        ping35khz.time = previous_ping_tick + ms_to_ticks(1400);
+                        ping40khz.time = previous_ping_tick + ms_to_ticks(1000);
+
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
+
                         frequency_sync = true;
+                        current_ping.frequency = ThirtyKHz;
                         break;
 
                     case ThirtyFiveKHz:
-                        previous_ping_tick += ms_to_ticks(1400);
+                        ping30khz.time = previous_ping_tick + ms_to_ticks(1400);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
                         break;
 
                     case FourtyKHz:
-                        previous_ping_tick += ms_to_ticks(1000);
+                        ping30khz.time = previous_ping_tick + ms_to_ticks(1000);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
                         break;
 
                     default:
@@ -633,19 +765,33 @@ result_t go()
                 switch (tracked_frequency)
                 {
                     case TwentyFiveKHz:
-                        previous_ping_tick += ms_to_ticks(1100);
+                        ping35khz.time = previous_ping_tick + ms_to_ticks(1100);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
                         break;
 
                     case ThirtyKHz:
-                        previous_ping_tick += ms_to_ticks(600);
+                        ping35khz.time = previous_ping_tick + ms_to_ticks(600);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
                         break;
 
                     case ThirtyFiveKHz:
+                        ping25khz.time = previous_ping_tick + ms_to_ticks(1100);
+                        ping30khz.time = previous_ping_tick + ms_to_ticks(600);
+                        ping35khz.time = previous_ping_tick + ms_to_ticks(2000);
+                        ping40khz.time = previous_ping_tick + ms_to_ticks(1600);
+
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
+
                         frequency_sync = true;
+                        current_ping.frequency = ThirtyFiveKHz;
                         break;
 
                     case FourtyKHz:
-                        previous_ping_tick += ms_to_ticks(1600);
+                        ping35khz.time = previous_ping_tick + ms_to_ticks(1600);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
                         break;
 
                     default:
@@ -658,19 +804,33 @@ result_t go()
                 switch (tracked_frequency)
                 {
                     case TwentyFiveKHz:
-                        previous_ping_tick += ms_to_ticks(1500);
+                        ping40khz.time = previous_ping_tick + ms_to_ticks(1500);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
                         break;
 
                     case ThirtyKHz:
-                        previous_ping_tick += ms_to_ticks(1000);
+                        ping40khz.time = previous_ping_tick + ms_to_ticks(1000);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
                         break;
 
                     case ThirtyFiveKHz:
-                        previous_ping_tick += ms_to_ticks(400);
+                        ping40khz.time = previous_ping_tick + ms_to_ticks(400);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
                         break;
 
                     case FourtyKHz:
+                        ping25khz.time = previous_ping_tick + ms_to_ticks(1500);
+                        ping30khz.time = previous_ping_tick + ms_to_ticks(1000);
+                        ping35khz.time = previous_ping_tick + ms_to_ticks(400);
+                        ping40khz.time = previous_ping_tick + ms_to_ticks(2000);
+
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
+                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
+
                         frequency_sync = true;
+                        current_ping.frequency = FourtyKHz;
                         break;
 
                     default:
@@ -684,6 +844,7 @@ result_t go()
                  * The calculated frequency did not fall in our range of
                  * interest. It must not have been a ping.
                  */
+                dbprintf("Frequency outside of range: %u\n", primary_frequency);
                 sync = false;
                 continue;
             }
@@ -717,15 +878,33 @@ result_t go()
         correlation_result_t result;
         size_t num_correlations;
 
-        AbortIfNot(cross_correlate(ping_start, ping_length, correlations, MAX_SAMPLES * 2, &num_correlations, &result, sampling_frequency), fail);
+        tick_t start_time = get_system_time();
+        AbortIfNot(cross_correlate(ping_start,
+                                   ping_length,
+                                   correlations,
+                                   MAX_SAMPLES * 2,
+                                   &num_correlations,
+                                   &result,
+                                   sampling_frequency),
+            fail);
 
-        dbprintf("Correlation results: %d %d %d\n", result.channel_delay_ns[0], result.channel_delay_ns[1], result.channel_delay_ns[2]);
+        tick_t duration_time = get_system_time() - start_time;
+        dbprintf("Correlation took %d ms\n", ticks_to_ms(duration_time));
+        dbprintf("Correlation results: %d %d %d\n",
+                result.channel_delay_ns[0],
+                result.channel_delay_ns[1],
+                result.channel_delay_ns[2]);
 
         #ifndef EMULATED
+        if (current_ping.frequency != Unknown)
+        {
             /*
              * Relay the result.
              */
-            AbortIfNot(send_result(&result_socket, &result), fail);
+            AbortIfNot(send_result(&result_socket,
+                                   &result,
+                                   current_ping.frequency),
+                fail);
 
             /*
              * Send the data for the correlation portion and the correlation
@@ -735,8 +914,10 @@ result_t go()
                                   correlations,
                                   num_correlations),
                 fail);
+
             AbortIfNot(send_data(&data_stream_socket, ping_start, ping_length),
                 fail);
+        }
         #endif
     }
 }

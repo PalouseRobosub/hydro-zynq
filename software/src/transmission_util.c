@@ -12,14 +12,50 @@
 #include "inttypes.h"
 
 /**
+ * Transforms a frequency enumeration to a number.
+ *
+ * @param frequency The enumeration to transform.
+ *
+ * @return The number, in KHz, that the frequency enumeration corresponds to.
+ */
+int frequency_enum_to_num(const PingFrequency frequency)
+{
+    switch (frequency)
+    {
+        case Unknown:
+            return -1;
+
+        case TwentyFiveKHz:
+            return 25;
+
+        case ThirtyKHz:
+            return 30;
+
+        case ThirtyFiveKHz:
+            return 35;
+
+        case FourtyKHz:
+            return 40;
+
+        default:
+            return 0;
+    }
+
+    return 0;
+}
+
+/**
  * Transmits a cross correlation result.
  *
  * @param socket The connected socket to send data over.
  * @param result The result to transmit.
+ * @param frequency The frequency of the ping.
  *
  * @return Success or fail.
  */
-result_t send_result(udp_socket_t *socket, correlation_result_t *result)
+result_t send_result(udp_socket_t *socket,
+                     correlation_result_t *result,
+                     const PingFrequency frequency)
 {
     AbortIfNot(socket, fail);
     AbortIfNot(result, fail);
@@ -29,7 +65,8 @@ result_t send_result(udp_socket_t *socket, correlation_result_t *result)
     /*
      * Format the result into an standard message.
      */
-    sprintf(str, "Result - 1: %"PRId32" 2: %"PRId32" 3: %"PRId32"\n",
+    sprintf(str, "%d KHz Result - 1: %"PRId32" 2: %"PRId32" 3: %"PRId32"\n",
+            frequency_enum_to_num(frequency),
             result->channel_delay_ns[0],
             result->channel_delay_ns[1],
             result->channel_delay_ns[2]);
