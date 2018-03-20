@@ -4,6 +4,12 @@
 #include "system_params.h"
 #include "types.h"
 
+#include <sys/time.h>
+
+int _gettimeofday( struct timeval *tv, void *tzvp);
+
+uint64_t ticks_to_ns(tick_t ticks);
+
 tick_t ms_to_ticks(uint32_t milliseconds);
 
 tick_t micros_to_ticks(uint32_t microseconds);
