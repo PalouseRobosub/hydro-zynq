@@ -4,6 +4,7 @@
 #include "adc.h"
 #include "correlation_util.h"
 #include "dma.h"
+#include "gpio.h"
 #include "system.h"
 #include "system_params.h"
 #include "time_util.h"
@@ -14,6 +15,8 @@
  * Records a number of analog samples.
  *
  * @param dma A pointer to the AXI DMA driver to use for sample acquisition.
+ * @param gpio A pointer to the AXI GPIO driver to use for resetting the data
+ *        FIFO.
  * @param data A pointer to where analog samples should be stored.
  * @param sample_count The number of samples to take.
  * @param adc The QuadADC driver that is connected to the DMA.
@@ -21,6 +24,7 @@
  * @return Success or fail.
  */
 result_t record(dma_engine_t *dma,
+                gpio_driver_t *gpio,
                 sample_t *data,
                 const size_t sample_count,
                 const adc_driver_t adc)
@@ -29,6 +33,17 @@ result_t record(dma_engine_t *dma,
     AbortIfNot(data, fail);
     AbortIfNot(adc.regs, fail);
     AbortIfNot(sample_count % adc.regs->samples_per_packet == 0, fail);
+
+    /*
+     * Reset the FIFO feeding the DMA to purge stale data. The FIFO reset signal
+     * needs to be asserted for atleast 3 of the slowest clock cycles. The
+     * slowest clock is the FRAME_CLK at 5MHz. 1 microsecond should allow
+     * atleast 5 clock cycles to pass.
+     */
+    AbortIfNot(gpio, fail);
+    AbortIfNot(set_gpio(gpio, 0, false), fail);
+    busywait(micros_to_ticks(1));
+    AbortIfNot(set_gpio(gpio, 0, true), fail);
 
     size_t total_samples = 0;
     size_t invalid_packets = 0;
@@ -121,6 +136,7 @@ result_t normalize(sample_t *data, const size_t len)
  * Acquire sync with the ping.
  *
  * @param dma A pointer to the DMA driver to use for sampling.
+ * @param gpio A pointer to the GPIO driver to use for resetting the data FIFO.
  * @param data A pointer to the location to store data.
  * @param max_len The maximum number of samples pointed to by data.
  * @param[out] start_time The tick that the ping started at.
@@ -135,6 +151,7 @@ result_t normalize(sample_t *data, const size_t len)
  * @return Success or fail.
  */
 result_t acquire_sync(dma_engine_t *dma,
+                      gpio_driver_t *gpio,
                       sample_t *data,
                       size_t max_len,
                       tick_t *start_time,
@@ -147,6 +164,7 @@ result_t acquire_sync(dma_engine_t *dma,
                       const size_t filter_order)
 {
     AbortIfNot(dma, fail);
+    AbortIfNot(gpio, fail);
     AbortIfNot(data, fail);
     AbortIfNot(params, fail);
     AbortIfNot(start_time, fail);
@@ -166,7 +184,7 @@ result_t acquire_sync(dma_engine_t *dma,
     /*
      * Record and normalize the signal.
      */
-    AbortIfNot(record(dma, data, max_len, adc), fail);
+    AbortIfNot(record(dma, gpio, data, max_len, adc), fail);
     AbortIfNot(normalize(data, max_len), fail);
 
     /*

@@ -9,6 +9,7 @@
 #include "adc.h"
 #include "correlation_util.h"
 #include "dma.h"
+#include "gpio.h"
 #include "lwip/ip.h"
 #include "lwip/udp.h"
 #include "network_stack.h"
@@ -22,7 +23,7 @@
 #include "udp.h"
 #include "db.h"
 
-#include "adc_dma_addresses.h"
+#include "adc_dma_reset_addresses.h"
 
 #include <string.h>
 
@@ -40,6 +41,11 @@ spi_driver_t adc_spi;
  * The ADC driver to use for controlling the ADC parameters.
  */
 adc_driver_t adc;
+
+/**
+ * The GPIO driver to use for controlling FIFO resets.
+ */
+gpio_driver_t gpio;
 
 /**
  * The maximum number of samples for 2.2 seconds at 65Msps.
@@ -306,6 +312,12 @@ result_t go()
     dbprintf("ADC samples per packet: %d\n", adc.regs->samples_per_packet);
 
     /*
+     * Initialize the GPIO reset driver. Bring the FIFO out of reset.
+     */
+    AbortIfNot(init_gpio(&gpio, GPIO_BASE_ADDRESS, 1), fail);
+    AbortIfNot(set_gpio(&gpio, 0, true), fail);
+
+    /*
      * Bind the command port, data stream port, and the result output port.
      */
     udp_socket_t command_socket, data_stream_socket, result_socket, xcorr_stream_socket, silent_request_socket;
@@ -373,6 +385,7 @@ result_t go()
                 uint32_t sample_duration_ms = 2100;
                 uint32_t samples_to_take = sample_duration_ms / 1000.0 * sampling_frequency;
                 AbortIfNot(acquire_sync(&dma,
+                                        &gpio,
                                         samples,
                                         samples_to_take,
                                         &previous_ping_tick,
@@ -445,7 +458,7 @@ result_t go()
         }
 
         tick_t sample_start_tick = get_system_time();
-        AbortIfNot(record(&dma, samples, num_samples, adc), fail);
+        AbortIfNot(record(&dma, &gpio, samples, num_samples, adc), fail);
 
         AbortIfNot(normalize(samples, num_samples), fail);
 
