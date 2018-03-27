@@ -306,12 +306,6 @@ result_t go()
     dbprintf("ADC samples per packet: %d\n", adc.regs->samples_per_packet);
 
     /*
-     * Read the first sample from the ADC and ignore it - the ADC always has an
-     * invalid measurement as the first reading.
-     */
-    AbortIfNot(record(&dma, samples, adc.regs->samples_per_packet, adc), fail);
-
-    /*
      * Bind the command port, data stream port, and the result output port.
      */
     udp_socket_t command_socket, data_stream_socket, result_socket, xcorr_stream_socket, silent_request_socket;
@@ -338,6 +332,12 @@ result_t go()
             ticks_to_ms(get_system_time()));
 
     set_interrupts(true);
+
+    /*
+     * Read the first sample from the ADC and ignore it - the ADC always has an
+     * invalid measurement as the first reading.
+     */
+    AbortIfNot(record(&dma, samples, adc.regs->samples_per_packet, adc), fail);
 
     /*
      * Set up the initial parameters.
