@@ -18,7 +18,7 @@ if __name__ =='__main__':
         reader = csv.DictReader(f)
         for row in reader:
             for (k,v) in row.items():
-                columns[k].append(int(v))
+                columns[k].append(int(float(v)))
     print 'Done'
 
     if len(columns['Sample number']) < 10000000:
