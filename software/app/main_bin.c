@@ -690,11 +690,8 @@ result_t go()
         correlation_result_t result;
         size_t num_correlations;
 
-        tick_t start_time = get_system_time();
         AbortIfNot(cross_correlate(ping_start, ping_length, correlations, MAX_SAMPLES * 2, &num_correlations, &result, sampling_frequency), fail);
 
-        tick_t duration_time = get_system_time() - start_time;
-        dbprintf("Correlation took %d ms\n", ticks_to_ms(duration_time));
         dbprintf("Correlation results: %d %d %d\n", result.channel_delay_ns[0], result.channel_delay_ns[1], result.channel_delay_ns[2]);
 
         #ifndef EMULATED
