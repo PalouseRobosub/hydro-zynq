@@ -538,8 +538,13 @@ result_t go()
         if (!debug_stream && !frequency_sync)
         {
             float primary_frequency;
+            size_t last_sample = start_index + 0.002 * sampling_frequency;
+            if (last_sample >= num_samples)
+            {
+                last_sample = num_samples - 1;
+            }
             AbortIfNot(get_frequency(&samples[start_index],
-                                     end_index - start_index + 1,
+                                     last_sample - start_index + 1,
                                      sampling_frequency,
                                      &primary_frequency),
                     fail);
