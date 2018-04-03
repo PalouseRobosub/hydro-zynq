@@ -6,6 +6,7 @@
 #include "system.h"
 #include "time_util.h"
 #include "types.h"
+#include "transmission_util.h"
 
 #include "fft.h"
 
@@ -20,13 +21,15 @@ float input_data[MAX_INPUT_LENGTH * 2];
  * @param num_samples The number of samples provided in the input.
  * @param sample_frequency The sampling frequency of the input samples in Hz.
  * @param[out] frequency The most prevalent frequency detected in the signal.
+ * @param[opt] transmission_socket UDP socket to transmit FFT result on.
  *
  * @return Success or fail.
  */
 result_t get_frequency(const sample_t *samples,
                        const size_t num_samples,
                        const uint32_t sample_frequency,
-                       float *frequency)
+                       float *frequency,
+                       udp_socket_t *transmission_socket)
 {
     AbortIfNot(samples, fail);
     AbortIfNot(num_samples, fail);
@@ -79,6 +82,15 @@ result_t get_frequency(const sample_t *samples,
             max_mag = mag;
             max_mag_index = i;
         }
+    }
+
+    if (transmission_socket)
+    {
+        AbortIfNot(send_fft(transmission_socket,
+                            input_data,
+                            sample_frequency,
+                            input_size),
+                fail);
     }
 
     /*

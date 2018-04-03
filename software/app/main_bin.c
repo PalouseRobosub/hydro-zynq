@@ -93,6 +93,18 @@ filter_coefficients_t highpass_iir[5] = {
     {{0.906313647059524, -1.812627294119048, 0.906313647059524,
         1.000000000000000, -1.848974099452832, 0.860723515924862}}};
 
+int frequency_to_int(PingFrequency f)
+{
+    switch (f)
+    {
+        case TwentyFiveKHz: return 25;
+        case ThirtyKHz: return 30;
+        case ThirtyFiveKHz: return 35;
+        case FourtyKHz: return 40;
+        default: return 0;
+    }
+}
+
 /**
  * Parses an argument packet into key-value pairs.
  *
@@ -347,6 +359,8 @@ result_t go()
      */
     udp_socket_t command_socket, data_stream_socket, result_socket, xcorr_stream_socket, silent_request_socket;
 
+    udp_socket_t fft_socket;
+
     struct ip_addr dest_ip;
     IP4_ADDR(&dest_ip, 192, 168, 0, 2);
 
@@ -365,6 +379,9 @@ result_t go()
     AbortIfNot(init_udp(&result_socket), fail);
     AbortIfNot(connect_udp(&result_socket, &dest_ip, RESULT_PORT), fail);
 
+    AbortIfNot(init_udp(&fft_socket), fail);
+    AbortIfNot(connect_udp(&fft_socket, &dest_ip, FFT_RESULT_PORT), fail);
+
     dbprintf("System initialization complete. Start time: %d ms\n",
             ticks_to_ms(get_system_time()));
 
@@ -382,7 +399,7 @@ result_t go()
     params.sample_clk_div = adc.regs->clk_div;
     params.samples_per_packet = adc.regs->samples_per_packet;
     params.ping_threshold = INITIAL_ADC_THRESHOLD;
-    params.primary_frequency = TwentyFiveKHz;
+    params.primary_frequency = ThirtyFiveKHz;
 
     /*
      * Perform a correlation for two wavelengths after the threshold is
@@ -537,20 +554,28 @@ result_t go()
          */
         if (!debug_stream && !frequency_sync)
         {
-            float primary_frequency;
             size_t last_sample = start_index + 0.002 * sampling_frequency;
+
             if (last_sample >= num_samples)
             {
                 last_sample = num_samples - 1;
             }
+
+            float primary_frequency;
             AbortIfNot(get_frequency(&samples[start_index],
                                      last_sample - start_index + 1,
                                      sampling_frequency,
-                                     &primary_frequency),
+                                     &primary_frequency,
+                                    #ifndef EMULATED
+                                     &fft_socket
+                                    #else
+                                     NULL
+                                    #endif
+                                     ),
                     fail);
 
-            dbprintf("Primary frequency of ping is %lf Hz\n",
-                    primary_frequency);
+            dbprintf("Primary frequency of ping is %.2lf KHz\n",
+                    primary_frequency / 1000.0);
 
             if (primary_frequency >= 22500 && primary_frequency < 27500)
             {
@@ -675,7 +700,9 @@ result_t go()
 
         tick_t offset = start_index * (CPU_CLOCK_HZ / sampling_frequency);
         previous_ping_tick = sample_start_tick + offset;
-        dbprintf("Found ping: %f s\n", ticks_to_seconds(previous_ping_tick));
+        dbprintf("Found ping: %f s (%d KHz)\n",
+                ticks_to_seconds(previous_ping_tick),
+                frequency_to_int(tracked_frequency));
 
         /*
          * Locate the ping samples.

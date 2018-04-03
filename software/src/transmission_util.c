@@ -7,6 +7,7 @@
 #include "abort.h"
 #include "udp.h"
 
+#include <math.h>
 #include <string.h>
 #include "inttypes.h"
 
@@ -100,6 +101,51 @@ result_t send_data(udp_socket_t *socket, sample_t *data, const size_t count)
     return success;
 }
 
+/**
+ * Transmits a fourier transform over UDP.
+ *
+ * @param socket The socket to transmit results on.
+ * @param fft The FFT data array in (real, complex) form.
+ * @param sample_frequency The sampling frequency of the data.
+ * @param len The number of FFt results in fft.
+ *
+ * @return Success or fail.
+ */
+result_t send_fft(udp_socket_t *socket,
+                  float *fft,
+                  const uint32_t sample_frequency,
+                  const size_t len)
+{
+    AbortIfNot(socket, fail);
+    AbortIfNot(fft, fail);
+
+    #define ffts_per_packet 50
+    char buf[sizeof(uint32_t) + sizeof(uint32_t) * 2 * ffts_per_packet];
+
+    for(int i = 0; i < len / 2; i += ffts_per_packet)
+    {
+        int packet_number = i / ffts_per_packet;
+        memcpy(buf, &packet_number, 4);
+
+        int j = 0;
+        for (j = 0; j < ffts_per_packet && i + j < len; ++j)
+        {
+            const uint32_t frequency = sample_frequency *
+                (((float)(i + j)) / len);
+            const uint32_t mag = sqrt(fft[i * 2] * fft[i * 2] +
+                                      fft[i * 2 + 1] * fft[i * 2 + 1]);
+            memcpy(&buf[4 + (i + j) * 8], &frequency, 4);
+            memcpy(&buf[4 + (i + j) * 8 + 4], &mag, 4);
+        }
+
+        AbortIfNot(send_udp(socket, buf, 8 * j + 4), fail);
+        dispatch_network_stack();
+        busywait(micros_to_ticks(100));
+    }
+
+    return success;
+}
+
 result_t send_xcorr(udp_socket_t *socket, correlation_t *data, const size_t count)
 {
     AbortIfNot(socket, fail);
@@ -153,5 +199,4 @@ result_t send_xcorr(udp_socket_t *socket, correlation_t *data, const size_t coun
     }
 
     return success;
-
 }
