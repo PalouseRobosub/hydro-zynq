@@ -956,12 +956,6 @@ result_t go()
             }
         }
 
-        tick_t offset = start_index * (CPU_CLOCK_HZ / sampling_frequency);
-        previous_ping_tick = sample_start_tick + offset;
-        dbprintf("Found ping: %f s (%d KHz)\n",
-                ticks_to_seconds(previous_ping_tick),
-                frequency_to_int(tracked_frequency));
-
         /*
          * Locate the ping samples.
          */
@@ -975,7 +969,6 @@ result_t go()
         correlation_result_t result;
         size_t num_correlations;
 
-        tick_t start_time = get_system_time();
         AbortIfNot(cross_correlate(ping_start,
                                    ping_length,
                                    correlations,
@@ -985,9 +978,9 @@ result_t go()
                                    sampling_frequency),
             fail);
 
-        tick_t duration_time = get_system_time() - start_time;
-        dbprintf("Correlation took %d ms\n", ticks_to_ms(duration_time));
-        dbprintf("Correlation results: %d %d %d\n",
+        dbprintf("%4.5lf: Correlation results (%d KHz): %d %d %d\n",
+                ticks_to_seconds(previous_ping_tick),
+                frequency_to_int(current_ping.frequency),
                 result.channel_delay_ns[0],
                 result.channel_delay_ns[1],
                 result.channel_delay_ns[2]);
