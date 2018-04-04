@@ -116,11 +116,13 @@ result_t length_ring_buffer(const ring_buffer_t* buffer, size_t *len)
 
     if (buffer->head <= buffer->tail)
     {
-        return buffer->tail - buffer->head;
+        *len = buffer->tail - buffer->head;
     }
     else
     {
-        return buffer->tail +
+        *len = buffer->tail +
                (sizeof(buffer->data) / sizeof(*buffer->data) - buffer->head);
     }
+
+    return success;
 }
