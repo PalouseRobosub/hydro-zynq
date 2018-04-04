@@ -264,6 +264,8 @@ void receive_command(void *arg,
                 AbortIfNot(fail, );
             }
 
+            frequency_sync = false;
+
             dbprintf("Primary frequency target is now: %d\n", frequency);
         }
         else if (strcmp(pairs[i].key, "track") == 0)
@@ -594,6 +596,10 @@ result_t go()
                 if (current_ping.frequency == params.primary_frequency ||
                     queue_length == 0)
                 {
+                    dbprintf("%4.5lf: Missed %d KHz primary ping @ %4.5lf - waiting for next\n",
+                            ticks_to_seconds(get_system_time()),
+                            frequency_to_int(current_ping.frequency),
+                            ticks_to_seconds(current_ping.time));
                     current_ping.time += ms_to_ticks(2000);
                 }
                 else
@@ -606,6 +612,8 @@ result_t go()
                     AbortIfNot(push_ring_buffer(&future_ping_queue,
                                                 current_ping),
                         fail);
+                    dbprintf("Missed %d KHz secondary ping\n",
+                            frequency_to_int(current_ping.frequency));
 
                     /*
                      * Cycle to the next scheduled ping.
@@ -714,38 +722,39 @@ result_t go()
         const tick_t previous_ping_tick = sample_start_tick + offset;
 
         /*
+         * Perform frequency analysis to ensure the ping frequency is
+         * what is expected.
+         */
+        size_t last_sample = start_index + 0.002 * sampling_frequency;
+
+        if (last_sample >= num_samples)
+        {
+            last_sample = num_samples - 1;
+        }
+
+        float primary_frequency;
+        AbortIfNot(get_frequency(&samples[start_index],
+                                 last_sample - start_index + 1,
+                                 sampling_frequency,
+                                 &primary_frequency,
+                                #ifndef EMULATED
+                                 &fft_socket
+                                #else
+                                 NULL
+                                #endif
+                                 ),
+                fail);
+
+        /*
          * Lock on to the proper frequency.
          */
         if (!debug_stream && !frequency_sync)
         {
-            size_t last_sample = start_index + 0.002 * sampling_frequency;
-
-            if (last_sample >= num_samples)
-            {
-                last_sample = num_samples - 1;
-            }
-
             /*
              * Empty out the ring buffer queue - we will reset everything
              * within this code section.
              */
             AbortIfNot(init_ring_buffer(&future_ping_queue), fail);
-
-            float primary_frequency;
-            AbortIfNot(get_frequency(&samples[start_index],
-                                     last_sample - start_index + 1,
-                                     sampling_frequency,
-                                     &primary_frequency,
-                                    #ifndef EMULATED
-                                     &fft_socket
-                                    #else
-                                     NULL
-                                    #endif
-                                     ),
-                    fail);
-
-            dbprintf("Primary frequency of ping is %.2lf KHz\n",
-                    primary_frequency / 1000.0);
 
             Ping ping25khz = {
                 .frequency = TwentyFiveKHz,
@@ -783,7 +792,6 @@ result_t go()
                             AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
                         if (params.track_30khz)
                             AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
-                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
 
                         frequency_sync = true;
                         current_ping.frequency = TwentyFiveKHz;
@@ -830,7 +838,6 @@ result_t go()
                             AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
                         if (params.track_35khz)
                             AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
-                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
 
                         frequency_sync = true;
                         current_ping.frequency = ThirtyKHz;
@@ -877,7 +884,6 @@ result_t go()
                             AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
                         if (params.track_40khz)
                             AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
-                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping35khz), fail);
 
                         frequency_sync = true;
                         current_ping.frequency = ThirtyFiveKHz;
@@ -924,7 +930,6 @@ result_t go()
                             AbortIfNot(push_ring_buffer(&future_ping_queue, ping30khz), fail);
                         if (params.track_25khz)
                             AbortIfNot(push_ring_buffer(&future_ping_queue, ping25khz), fail);
-                        AbortIfNot(push_ring_buffer(&future_ping_queue, ping40khz), fail);
 
                         frequency_sync = true;
                         current_ping.frequency = FourtyKHz;
@@ -955,6 +960,17 @@ result_t go()
                 continue;
             }
         }
+        else if (frequency_sync)
+        {
+            if (abs(primary_frequency - frequency_to_int(current_ping.frequency) * 1000) > 2500)
+            {
+                dbprintf("%4.5lf: Got unexected frequency. %2.2lf KHz, expected: %d KHz\n",
+                        primary_frequency / 1000.0, frequency_to_int(current_ping.frequency));
+                frequency_sync = false;
+                continue;
+            }
+        }
+
 
         /*
          * Locate the ping samples.
@@ -1016,9 +1032,14 @@ result_t go()
         /*
          * Schedule the next ping for this frequency onto the queue.
          */
-        current_ping.time = previous_ping_tick + ticks_to_ms(2000);
+        current_ping.time = previous_ping_tick + ms_to_ticks(2000);
         AbortIfNot(push_ring_buffer(&future_ping_queue, current_ping),
             fail);
+
+        dbprintf("%4.5lf: Record + Analysis (%d KHz) took %2.4lf s\n",
+                ticks_to_seconds(get_system_time()),
+                frequency_to_int(current_ping.frequency),
+                ticks_to_seconds(get_system_time() - sample_start_tick));
     }
 }
 
