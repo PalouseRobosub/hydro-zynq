@@ -1,10 +1,8 @@
-#include "system.h"
-#include "uart.h"
-#include "regs/uart_regs.h"
+#include "db.h"
 
 int main()
 {
-    print("Hello from Ryan!\n");
+    dbprintf("Hello from HelloWorldBin!\n");
 
     while (1);
 }

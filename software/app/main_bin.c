@@ -249,7 +249,9 @@ result_t request_thruster_shutdown(udp_socket_t *socket,
     memcpy(msg, &when_ms, 4);
     memcpy(&msg[4], &duration_ms, 4);
 
-    AbortIfNot(send_udp(socket, msg, 8), fail);
+    #ifndef EMULATED
+        AbortIfNot(send_udp(socket, msg, 8), fail);
+    #endif
 
     return success;
 }
@@ -281,13 +283,17 @@ result_t go()
     };
 
     AbortIfNot(init_network_stack(our_ip, netmask, gateway, mac_address), fail);
-    AbortIfNot(dbinit(), fail);
+
+    #ifndef EMULATED
+        AbortIfNot(dbinit(), fail);
+    #endif
+
     dbprintf("Network stack initialized\n");
 
     /*
      * Initialize the DMA engine for reading samples.
      */
-     AbortIfNot(initialize_dma(&dma, DMA_BASE_ADDRESS), fail);
+    AbortIfNot(initialize_dma(&dma, DMA_BASE_ADDRESS), fail);
 
     /*
      * Configure the ADC.
@@ -515,16 +521,23 @@ result_t go()
         dbprintf("Correlation took %d ms\n", ticks_to_ms(duration_time));
         dbprintf("Correlation results: %d %d %d\n", result.channel_delay_ns[0], result.channel_delay_ns[1], result.channel_delay_ns[2]);
 
-        /*
-         * Relay the result.
-         */
-        AbortIfNot(send_result(&result_socket, &result), fail);
+        #ifndef EMULATED
+            /*
+             * Relay the result.
+             */
+            AbortIfNot(send_result(&result_socket, &result), fail);
 
-        /*
-         * Send the data for the correlation portion and the correlation result.
-         */
-        AbortIfNot(send_xcorr(&xcorr_stream_socket, correlations, num_correlations), fail);
-        AbortIfNot(send_data(&data_stream_socket, ping_start, ping_length), fail);
+            /*
+             * Send the data for the correlation portion and the correlation
+             * result.
+             */
+            AbortIfNot(send_xcorr(&xcorr_stream_socket,
+                                  correlations,
+                                  num_correlations),
+                fail);
+            AbortIfNot(send_data(&data_stream_socket, ping_start, ping_length),
+                fail);
+        #endif
     }
 }
 
