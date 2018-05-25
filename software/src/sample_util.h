@@ -3,14 +3,17 @@
 
 #include "adc.h"
 #include "dma.h"
+#include "gpio.h"
 #include "types.h"
 
 result_t record(dma_engine_t *dma,
+                gpio_driver_t *gpio,
                 sample_t *data,
                 const size_t max_len,
                 const adc_driver_t adc);
 
 result_t acquire_sync(dma_engine_t *dma,
+                      gpio_driver_t *gpio,
                       sample_t *data,
                       size_t max_len,
                       tick_t *ping_start,
