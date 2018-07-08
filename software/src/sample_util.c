@@ -100,7 +100,7 @@ result_t normalize(sample_t *data, const size_t len)
     /*
      * Accumulate the total value of each channel to find the average value.
      */
-    uint64_t accumulators[4] = {0, 0, 0, 0};
+    int64_t accumulators[4] = {0, 0, 0, 0};
     for (size_t i = 0; i < len; ++i)
     {
         for (size_t k = 0; k < 4; ++k)

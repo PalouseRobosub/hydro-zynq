@@ -4,11 +4,31 @@
 #include <stdint.h>
 #include <stddef.h>
 
+/**
+ * Defines a boolean data type.
+ */
 typedef enum bool
 {
     false = 0,
     true = 1
 } bool;
+
+/**
+ * Defines a key-value pair combination.
+ */
+typedef struct KeyValuePair
+{
+    /*
+     * A pointer to the key name of the pair.
+     */
+    char *key;
+
+    /*
+     * A pointer to the value portion of the pair.
+     */
+    char *value;
+
+} KeyValuePair;
 
 /**
  * Defines the success and failure types.
@@ -34,16 +54,22 @@ typedef uint64_t tick_t;
  */
 typedef struct sample
 {
-    /*
+    /**
      * The analog sample measurement for each ADC channel.
      */
     analog_sample_t sample[4];
+
 } sample_t;
 
+/**
+ * Structure that holes the result of a cross-correlation.
+ */
 typedef struct correlation_t
 {
     int32_t left_shift;
+
     int32_t result[3];
+
 } correlation_t;
 
 /**
@@ -58,11 +84,49 @@ typedef struct correlation_result_t
 
 } correlation_result_t;
 
+/**
+ * Specifies filter coefficients of an IIR filter.
+ */
 typedef struct filter_coefficients_t
 {
+    /**
+     * Coefficieints are stored in form [B0, B1, B2, A0, A1, A2].
+     */
     float coefficients[6];
 
 } filter_coefficients_t;
+
+/**
+ * Specifies a pinger frequency.
+ */
+typedef enum PingFrequency
+{
+    /**
+     * Unknown or unspecified pinger frequency.
+     */
+    Unknown,
+
+    /**
+     * Pinger frequency of approximately 25KHz.
+     */
+    TwentyFiveKHz,
+
+    /**
+     * Pinger frequency of approximately 30KHz.
+     */
+    ThirtyKHz,
+
+    /**
+     * Pinger frequency of approximately 35KHz.
+     */
+    ThirtyFiveKHz,
+
+    /**
+     * Pinger frequency of approximately 40KHz.
+     */
+    FourtyKHz
+
+} PingFrequency;
 
 /**
  * Defines configurable parameters of the board.
@@ -101,6 +165,55 @@ typedef struct HydroZynqParameters
      */
     bool filter;
 
+    /**
+     * Specifies the currently tracked pinger frequency.
+     */
+    PingFrequency primary_frequency;
+
+    /**
+     * Specified true if the 25KHz signal should be tracked when not the primary
+     * frequency.
+     */
+    bool track_25khz;
+
+    /**
+     * Specified true if the 30KHz signal should be tracked when not the primary
+     * frequency.
+     */
+    bool track_30khz;
+
+    /**
+     * Specified true if the 35KHz signal should be tracked when not the primary
+     * frequency.
+     */
+    bool track_35khz;
+
+    /**
+     * Specified true if the 40KHz signal should be tracked when not the primary
+     * frequency.
+     */
+    bool track_40khz;
+
 } HydroZynqParams;
+
+typedef struct DeviceStatus {
+
+    uint32_t sampling_frequency;
+
+    const char *firmware_rev;
+
+    uint32_t fpga_temp_f;
+
+    uint32_t correlation_time_us;
+
+    uint32_t normalize_record_time_us;
+
+    uint32_t fft_time_us;
+
+    uint32_t fft_frequency_hz;
+
+    uint32_t ping_processing_time_us;
+
+} DeviceStatus;
 
 #endif
