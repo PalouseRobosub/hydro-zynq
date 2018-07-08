@@ -2,3 +2,4 @@ lib*.a filter=lfs diff=lfs merge=lfs -text
 *.bin filter=lfs diff=lfs merge=lfs -text
 *.elf filter=lfs diff=lfs merge=lfs -text
 *.bit filter=lfs diff=lfs merge=lfs -text
+bin/qemu-system-aarch64 filter=lfs diff=lfs merge=lfs -text
