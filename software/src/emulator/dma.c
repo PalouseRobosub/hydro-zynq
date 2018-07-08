@@ -8,7 +8,7 @@
 
 #include "regs/AdcRegs.h"
 
-#include "adc_dma_addresses.h"
+#include "adc_dma_reset_addresses.h"
 
 #include "db.h"
 
