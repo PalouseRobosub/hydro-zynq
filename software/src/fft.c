@@ -49,6 +49,8 @@ result_t discrete_fourier_transform(float *data, int32_t len, int isign)
         // Exchange the two complex numbers.
         if (j > i)
         {
+            AbortIfNot(i <= len * 2 && j <= len * 2, fail);
+            AbortIfNot(i > 0 && j > 0, fail);
             SWAP(data[j], data[i]);
             SWAP(data[j + 1], data[i + 1]);
         }
@@ -85,6 +87,9 @@ result_t discrete_fourier_transform(float *data, int32_t len, int isign)
             for (i = m; i <= n; i += istep)
             {
                 j = i + mmax;
+
+                AbortIfNot(i + 1 <=  len * 2 && j + 1 <= len * 2, fail);
+                AbortIfNot(i > 0 && j > 0, fail);
 
                 // This is the Danielson-Lanczos formula:
                 tempr = wr * data[j] - wi * data[j + 1];

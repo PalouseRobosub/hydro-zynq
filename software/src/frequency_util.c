@@ -58,9 +58,11 @@ result_t get_frequency(const sample_t *samples,
     }
 
     /*
-     * Calculate the actual FFT.
+     * Calculate the actual FFT. Offset the pointer to input_data by 1 to
+     * account for the algorithm using data starting at data[1] instead of
+     * data[0].
      */
-    AbortIfNot(discrete_fourier_transform(input_data, input_size, 1), fail);
+    AbortIfNot(discrete_fourier_transform(input_data - 1, input_size, 1), fail);
 
     /*
      * From the FFT output, calculate the most prevalent frequency in the

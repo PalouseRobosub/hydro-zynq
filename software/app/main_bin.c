@@ -112,6 +112,7 @@ int frequency_to_int(PingFrequency f)
         case ThirtyKHz: return 30;
         case ThirtyFiveKHz: return 35;
         case FourtyKHz: return 40;
+        case Unknown: return -1;
         default: return 0;
     }
 }
@@ -642,7 +643,11 @@ result_t go()
                             ticks_to_seconds(get_system_time()),
                             frequency_to_int(current_ping.frequency),
                             ticks_to_seconds(current_ping.time));
-                    current_ping.time += ms_to_ticks(2000);
+
+                    while (current_ping.time < get_system_time() - ms_to_ticks(100))
+                    {
+                        current_ping.time += ms_to_ticks(2000);
+                    }
                 }
                 else
                 {
