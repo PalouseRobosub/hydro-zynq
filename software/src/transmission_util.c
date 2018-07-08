@@ -4,6 +4,7 @@
 
 #include "types.h"
 #include "time_util.h"
+#include "system.h"
 #include "abort.h"
 #include "udp.h"
 
@@ -234,6 +235,55 @@ result_t send_xcorr(udp_socket_t *socket, correlation_t *data, const size_t coun
         AbortIfNot(send_udp(socket, buf, 16 * remainder + 4), fail);
         dispatch_network_stack();
     }
+
+    return success;
+}
+
+result_t send_status_message(udp_socket_t *socket,
+                             const DeviceStatus *device_status,
+                             const HydroZynqParams *params)
+{
+    AbortIfNot(socket, fail);
+    AbortIfNot(device_status, fail);
+    AbortIfNot(device_status->firmware_rev, fail);
+
+    char payload[1324];
+
+    sprintf(payload, "Firmware Revision: %s\n"
+                     "On Time: %4.5lf s\n"
+                     "Sampling Frequency: %d Hz\n"
+                     "Primary Frequency: %d\n"
+                     "Fpga Temp: %d *F\n"
+                     "Ping Frequency: %d Hz\n"
+                     "Record + Normalize Time: %d us\n"
+                     "FFT Time: %d us\n"
+                     "Correlation Time: %d us\n"
+                     "Ping processing Time: %d us\n"
+                     "Tracking 25KHz: %d\n"
+                     "Tracking 30KHz: %d\n"
+                     "Tracking 35KHz: %d\n"
+                     "Tracking 40KHz: %d\n"
+                     "Detection Threshold: %d\n",
+        device_status->firmware_rev,
+        ticks_to_seconds(get_system_time()),
+        (int) device_status->sampling_frequency,
+        frequency_enum_to_num(params->primary_frequency),
+        (int) device_status->fpga_temp_f,
+        (int) device_status->fft_frequency_hz,
+        (int) device_status->normalize_record_time_us,
+        (int) device_status->fft_time_us,
+        (int) device_status->correlation_time_us,
+        (int) device_status->ping_processing_time_us,
+        (int) params->track_25khz,
+        (int) params->track_30khz,
+        (int) params->track_35khz,
+        (int) params->track_40khz,
+        (int) params->ping_threshold);
+
+    #ifndef EMULATED
+        AbortIfNot(send_udp(socket, payload, strlen(payload)), fail);
+        dispatch_network_stack();
+    #endif
 
     return success;
 }

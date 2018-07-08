@@ -44,6 +44,18 @@ uint32_t ticks_to_ms(tick_t ticks)
 }
 
 /**
+ * Converts a number of system timer ticks to microseconds.
+ *
+ * @param ticks The number of system timer ticks.
+ *
+ * @return The number of microseconds in the provided tick count.
+ */
+uint32_t ticks_to_us(tick_t ticks)
+{
+    return 1000000 * ticks_to_seconds(ticks);
+}
+
+/**
  * Converts a number of system timer ticks to nanoseconds.
  *
  * @param ticks The number of system timer ticks.

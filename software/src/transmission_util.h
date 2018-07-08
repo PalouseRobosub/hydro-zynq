@@ -12,4 +12,6 @@ result_t send_fft(udp_socket_t *socket, float *fft, const uint32_t sample_freque
 
 result_t send_xcorr(udp_socket_t *socket, correlation_t *correlation, const size_t count);
 
+result_t send_status_message(udp_socket_t *socket, const DeviceStatus *status, const HydroZynqParams *params);
+
 #endif

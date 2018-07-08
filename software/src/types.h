@@ -196,4 +196,24 @@ typedef struct HydroZynqParameters
 
 } HydroZynqParams;
 
+typedef struct DeviceStatus {
+
+    uint32_t sampling_frequency;
+
+    const char *firmware_rev;
+
+    uint32_t fpga_temp_f;
+
+    uint32_t correlation_time_us;
+
+    uint32_t normalize_record_time_us;
+
+    uint32_t fft_time_us;
+
+    uint32_t fft_frequency_hz;
+
+    uint32_t ping_processing_time_us;
+
+} DeviceStatus;
+
 #endif

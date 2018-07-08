@@ -26,7 +26,7 @@ result_t dbinit()
 
 void dbprintf(char fmt[], ...)
 {
-    char str[256];
+    char str[1024];
     va_list args;
     va_start(args, fmt);
     vsprintf(str, fmt, args);
